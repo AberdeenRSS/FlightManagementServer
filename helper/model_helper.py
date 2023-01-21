@@ -1,10 +1,10 @@
 
-from typing import TypeVar
+from typing import Any, TypeVar, Union
 from schematics import Model
 
 T = TypeVar("T", bound=Model)
 
-def import_list(items: list[str], t: type[T]) -> list[T]:
+def import_list(items: Union[list[str], list[Any]], t: type[T]) -> list[T]:
 
     res = list()
 
@@ -13,7 +13,7 @@ def import_list(items: list[str], t: type[T]) -> list[T]:
     
     return res
 
-def export_list(itmes: list[Model]) -> list[object]:
+def export_list(itmes: list[T]) -> list[object]:
     
     res = list()
 

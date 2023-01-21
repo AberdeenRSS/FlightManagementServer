@@ -1,15 +1,13 @@
-from dataclasses import asdict
-from datetime import datetime, timedelta
-from heapq import merge
-from typing import Collection, Union
-from flask import current_app, g
-from pymongo import MongoClient, database, typings
-from json import loads, dumps
+from datetime import datetime
+from typing import Union
+from flask import current_app
+from pymongo import database
+from blinker import Namespace, signal
 
 from helper.model_helper import export_list, import_list
 from models.flight_measurement import FlightMeasurement, FlightMeasurementSchema, FlightMeasurementSeriesIdentifier
+from services.data_access.common.collection_managment import get_or_init_collection
 
-from .mongodb.mongodb_connection import get_db
 
 #region Constants
 
@@ -28,6 +26,20 @@ project_stage = {
         '_datetime': '$_datetime'
     }
 }
+
+#endregion
+
+#region Signals
+
+NEW_FLIGHT_DATA = 'NEW_FLIGHT_DATA'
+
+flight_data_signals = Namespace()
+flight_data_signal = signal(f'{NEW_FLIGHT_DATA}')
+
+
+# def get_flight_data_signal() -> NamedSignal:
+#     global flight_data_signals
+#     return 
 
 #endregion
 
@@ -83,33 +95,19 @@ def debsonify_measurements(measurements: list[dict]):
 
 #endregion
 
-cached_collections = dict()
+#region Collection management
 
 def get_or_init_flight_data_collection(flight_id: str, vessel_part: str) -> database.Database:
 
-    global cached_collections
+    def create_collection(db: database.Database, n: str):
+        return db.create_collection(n, timeseries = {
+            'timeField': '_datetime',
+            'granularity': 'seconds'
+        })
 
-    name = f'flight_{flight_id.replace("-", "")}_part_{vessel_part.replace("-", "")}'
+    return get_or_init_collection(f'flight_data_{flight_id.replace("-", "")}_part_{vessel_part.replace("-", "")}', create_collection)
 
-    db = get_db()
-
-    if name in cached_collections:
-        return db[name]
-
-    existing_collection = db.list_collection_names(filter = { 'name': { '$eq': name }})
-
-    # If the collection already exist we are done
-    if len(existing_collection) > 0:
-        cached_collections[name] = True
-        return db[name]
-
-    db.create_collection(name, timeseries = {
-        'timeField': '_datetime',
-        'granularity': 'seconds'
-    })
-
-    cached_collections[name] = True
-    return db[name]
+#endregion
 
 # Inserts new measured flight data
 def insert_flight_data(measurements: list[FlightMeasurement], flight_id: str, vessel_part: str):
@@ -119,10 +117,15 @@ def insert_flight_data(measurements: list[FlightMeasurement], flight_id: str, ve
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
     measurements_raw = export_list(measurements)
+
     for m in measurements_raw:
         m['_datetime'] = datetime.fromisoformat(m['_datetime'])
 
     res = collection.insert_many(measurements_raw)
+
+    s = signal(NEW_FLIGHT_DATA)
+
+    s.send(current_app._get_current_object(), flight_id=flight_id, measurements = measurements, vessel_part = vessel_part)
 
 def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurement]:
     collection = get_or_init_flight_data_collection(str(series_identifier._flight_id), str(series_identifier._vessel_part_id))
@@ -133,7 +136,6 @@ def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifie
     debsonify_measurements(res)
 
     return import_list(res, FlightMeasurement)
-
 
 def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Union['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementSchema] ):
 

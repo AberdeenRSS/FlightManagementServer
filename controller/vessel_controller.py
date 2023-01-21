@@ -1,11 +1,15 @@
+from typing import cast
+from uuid import UUID
 from flask import Blueprint
 from flask import request, flash, g, jsonify
 from helper.model_helper import export_list
 from middleware.auth.requireAuth import auth_required
 
 from models.vessel import Vessel
-from services.auth.jwt_user_info import get_user_info
+from services.auth.jwt_user_info import User, get_user_info
 from services.data_access.vessel import create_or_update_vessel, get_all_vessels
+
+from schematics.types import UUIDType
 
 
 vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
@@ -16,10 +20,10 @@ vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
 def registerVessel():
 
     vessel = Vessel(request.get_json())
-    user_info = get_user_info()
+    user_info = cast(User, get_user_info())
 
     # Use the identity of the vessel as its id -> Only one entry per authentication code
-    vessel._id = user_info.unique_id
+    vessel._id = cast(UUIDType, UUID(user_info.unique_id))
 
     vessel.validate()
 

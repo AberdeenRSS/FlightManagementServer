@@ -1,4 +1,5 @@
 from time import strftime
+from typing import Type
 import uuid
 from schematics.models import Model
 from schematics.types import StringType, UUIDType, DateTimeType, ListType, ModelType, BaseType, DictType, NumberType, IntType, FloatType
@@ -28,8 +29,7 @@ class FlightMeasurement(Model):
     # The datetime the measurement is for (primary index)
     _datetime = DateTimeType(required = True)
 
-    # _series = ModelType(FlightMeasurementSeriesIdentifier, required=True)
-
+    # The measured values themselves
     measured_values = DictType(BaseType)
 
 def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementSchema]):
@@ -48,7 +48,7 @@ def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementSchema]):
         
     return type(str(uuid.uuid4()).upper(), (Model, ), res_types)
 
-def getConcreteMeasurementSchema(schema: list[FlightMeasurementSchema]):
+def getConcreteMeasurementSchema(schema: list[FlightMeasurementSchema]) -> Type[FlightMeasurement]:
     return type(str(uuid.uuid4()).upper(), (FlightMeasurement, ), dict( measured_values = ModelType(getConcreteMeasuredValuesType(schema)) ))
     
 

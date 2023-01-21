@@ -1,11 +1,6 @@
-from dataclasses import asdict
 from typing import Union
-from flask import current_app, g
-from pymongo import MongoClient, database
-from json import loads
 
 from helper.model_helper import import_list
-
 from .mongodb.mongodb_connection import get_db
 from models.flight import Flight
 

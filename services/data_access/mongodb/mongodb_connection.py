@@ -1,3 +1,4 @@
+from typing import Any, Mapping
 from flask import current_app, g
 from pymongo import MongoClient
 from pymongo.database import Database

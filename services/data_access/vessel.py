@@ -1,10 +1,7 @@
 from typing import Union
-from flask import current_app, g
-from pymongo import MongoClient, database
-from json import dumps, loads, dump
+from json import dumps
 
 from helper.model_helper import import_list
-
 from .mongodb.mongodb_connection import get_db
 from models.vessel import Vessel
 
@@ -22,7 +19,7 @@ def create_or_update_vessel(vessel: Vessel) -> Vessel:
 
     # Check if the vessel already exists, if so put the old version in the
     # Old vessel collection
-    vessels_raw = list(vessel_collection.find({'_id':  str(vessel._id)}))
+    vessels_raw = list(vessel_collection.find({'_id': str(vessel._id)}))
 
     if len(vessels_raw) > 0:
         old_vessel = Vessel(vessels_raw[0])
