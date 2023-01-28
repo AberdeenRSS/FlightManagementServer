@@ -1,55 +1,104 @@
+from dataclasses import dataclass, field
+from datetime import datetime
 from time import strftime
-from typing import Type
+from typing import Type, Union
 import uuid
-from schematics.models import Model
-from schematics.types import StringType, UUIDType, DateTimeType, ListType, ModelType, BaseType, DictType, NumberType, IntType, FloatType
+from marshmallow import Schema, fields, validate
+from helper.model_helper import make_safe_schema
 
-# Identifies which time series the measurement belongs to
-class FlightMeasurementSeriesIdentifier(Model):
-    # The id of the flight
-    _flight_id = UUIDType(required = True)
+@dataclass
+class FlightMeasurementSeriesIdentifier:
+    
+    _flight_id: uuid.UUID
 
-    # The vessel part the measurement is for
-    _vessel_part_id = UUIDType(required = True)
+    _vessel_part_id: uuid.UUID
 
-# Describes a field in the measured data
-class FlightMeasurementSchema(Model):
-    # The name of the datefield
-    name = StringType()
+class FlightMeasurementSeriesIdentifierSchema(make_safe_schema(FlightMeasurementSeriesIdentifier)):
+    """
+    Identifies which time series the measurement belongs to
+    """
 
-    # The type of that data field
-    type = StringType(r"(string)|(int)|(float)")
+    _flight_id = fields.UUID(required = True)
 
-# A single measurement relayed back by the model
-class FlightMeasurement(Model):
+    _vessel_part_id = fields.UUID(required = True)
 
-    # Database index
-    _id = StringType()
+@dataclass
+class FlightMeasurementDescriptor:
+    """
+    Describes a field in the measured data
+    """
 
-    # The datetime the measurement is for (primary index)
-    _datetime = DateTimeType(required = True)
+    name: str
 
-    # The measured values themselves
-    measured_values = DictType(BaseType)
+    type: str
+    """The type of the that measurement. Can be a "string", "int" or a "float" """
 
-def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementSchema]):
+class FlightMeasurementDescriptorSchema(make_safe_schema(FlightMeasurementDescriptor)):
+    """
+    Describes a field in the measured data
+    """
+
+    name = fields.String()
+
+    type = fields.String(validate= validate.Regexp(r"(string)|(int)|(float)"))
+    """The type of the that measurement. Can be a "string", "int" or a "float" """
+
+@dataclass
+class FlightMeasurement:
+    """A single measurement relayed back by the model
+    """
+    
+    _datetime: datetime
+    """The datetime the measurement is for (primary index)"""
+
+    measured_values: dict[str, Union[str, int, float]] = field(default_factory=dict)
+    """The measured values themselves"""
+
+    _id: Union[uuid.UUID, None] = None
+
+class FlightMeasurementSchema(make_safe_schema(FlightMeasurement)):
+    """A single measurement relayed back by the model
+    """
+
+    _id = fields.String()
+
+    _datetime = fields.DateTime(required = True)
+    """The datetime the measurement is for (primary index)"""
+
+    measured_values = fields.Dict(keys = fields.Str(), values = fields.Raw())
+    """The measured values themselves"""
+
+def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementDescriptorSchema]):
+    """
+    Creates a new marshmallow definition according to the past schemas.
+    This definition will have the measurement name as the property key
+    and the value as the passed type
+    """
 
     res_types = dict()
 
     for schema in schemas:
         if schema.type == 'string':
-            res_types[schema.name] = StringType()
+            res_types[schema.name] = fields.String()
         elif schema.type == 'int':
-            res_types[schema.name] = IntType()
+            res_types[schema.name] = fields.Int()
         elif schema.type == 'float':
-            res_types[schema.name] = FloatType()
+            res_types[schema.name] = fields.Float()
         else:
             raise NotImplementedError(f'Schema type {schema.type} not supported')
         
-    return type(str(uuid.uuid4()).upper(), (Model, ), res_types)
+    # Create a new type with a random uuid as it's name
+    # Have it inherit from the schema class and implement the
+    # previously created fields
+    return type(str(uuid.uuid4()).upper(), (Schema, ), res_types)
 
-def getConcreteMeasurementSchema(schema: list[FlightMeasurementSchema]) -> Type[FlightMeasurement]:
-    return type(str(uuid.uuid4()).upper(), (FlightMeasurement, ), dict( measured_values = ModelType(getConcreteMeasuredValuesType(schema)) ))
+def getConcreteMeasurementSchema(schema: list[FlightMeasurementDescriptorSchema]) -> Type[FlightMeasurementSchema]:
+    """
+    Creates a new FlightMeasurement schema based on the requested properties.
+    Replaces the `FlightMeasurement.measured_values` with a nested schema
+    which has the correct keys and value types for validation
+    """
+    return type(str(uuid.uuid4()).upper(), (FlightMeasurementSchema, ), dict( measured_values = fields.Nested(getConcreteMeasuredValuesType(schema)) ))
     
 
 

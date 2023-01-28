@@ -2,25 +2,24 @@ from datetime import datetime
 from typing import cast
 from flask import Blueprint
 from flask import request, flash, g, jsonify
-from helper.model_helper import export_list
 from middleware.auth.requireAuth import auth_required
 from uuid import uuid4
 
-from helper.model_helper import import_list
-from models.command import Command
+from models.command import CommandSchema
 from services.auth.jwt_user_info import User, get_user_info
 from services.data_access.command import insert_commands
 from services.data_access.vessel import get_vessel
-from schematics.types import StringType, UUIDType, DateTimeType, ListType, ModelType, BaseType, DictType, NumberType, IntType, FloatType
-
 
 
 command_controller = Blueprint('command', __name__, url_prefix='/command')
 
-# Method for a vessel to register
 @command_controller.route("/dispatch/<flight_id>", methods = ['POST'])
 @auth_required
 def dispatch_commands(flight_id: str):
+    """
+    Dispatches a command to the vessel. Meant to be called from a ui/frontend or
+    other type of client
+    """
 
     parsed_commands = request.get_json()
 
@@ -28,7 +27,7 @@ def dispatch_commands(flight_id: str):
         flash('Invalid json, commands have to be send as an array')
         return ''
     
-    commands = import_list(parsed_commands, Command)
+    commands = import_list(parsed_commands, CommandSchema)
 
     if len(commands) < 1:
         flash('No command in list')

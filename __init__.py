@@ -7,8 +7,8 @@ from services.data_access.mongodb.mongodb_connection import init_app
 from controller.vessel_controller import vessel_api
 from controller.flight_controller import flight_controller
 from controller.flight_data_controller import flight_data_controller
-
 from flask_socketio import SocketIO
+from services.swagger.init_swagger import init_swagger
 
 def create_app():
 
@@ -38,5 +38,7 @@ def create_app():
 
     socketio = SocketIO(app, cors_allowed_origins = '*')
     init_socket_io_controller(socketio)
+
+    init_swagger(app)
 
     return (app, socketio)

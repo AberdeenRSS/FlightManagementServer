@@ -1,43 +1,115 @@
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Union
-from schematics.models import Model
-from schematics.types import StringType, UUIDType, DateTimeType, ListType, ModelType, BaseType, DictType, NumberType, IntType, FloatType
+from uuid import UUID
+from marshmallow import Schema, fields, validate
+from helper.model_helper import make_safe_schema
 
-# Commands are issued to vessels to make them perform and action
-# The vessel's computer has to retrieve them and report if they where
-# completed successfully
-class Command(Model):
+@dataclass
+class Command:
+    """
+    Commands are issued to vessels to make them perform and action
+    The vessel's computer has to retrieve them and report if they where
+    completed successfully
+    """
 
-    # The id of the command itself. This is to identify the command. Every new subsequent
-    # command needs a new id to distinguish it
-    _id = UUIDType(required = True)
+    _id: UUID
+    """
+    The id of the command itself. This is to identify the command. Every new subsequent
+    command needs a new id to distinguish it
+    """
 
-    # The id of the part that the command is for (Optional)
-    part_id = UUIDType()
+    command_code: str
+    """The code that identifies the command, i.e. what action should be performed"""
 
-    # The code that identifies the command, i.e. what action should be performed
-    command_code = StringType(required = True)
+    create_time: datetime
+    """Time at which the command was created"""
 
-    # Time at which the command was created
-    create_time = DateTimeType(required = True)
+    part_id: Union[UUID, None] = None
+    """
+    The id of the part that the command is for (Optional)
+    """
 
-    # Time at which the command was dispatched to the vessel
-    # If not set, the command was not yet dispatched
-    dispatch_time = DateTimeType()
+    dispatch_time: Union[datetime, None] = None
+    """
+    Time at which the command was dispatched to the vessel
+    If not set, the command was not yet dispatched
+    """
 
-    # Time at which the command was received by the vessel
-    # If not set, the command was not yet received by the vessel
-    receive_time = DateTimeType()
+    receive_time: Union[datetime, None] = None
+    """
+    Time at which the command was received by the vessel
+    If not set, the command was not yet received by the vessel
+    """
 
-    # Time at which the vessel confirmed the successful or unsuccessful execution of the command
-    # If not set, the command was yet completed or it failed
-    complete_time = DateTimeType()
+    complete_time: Union[datetime, None] = None
+    """
+    Time at which the vessel confirmed the successful or unsuccessful execution of the command
+    If not set, the command was yet completed or it failed
+    """
 
-    # The state the command is in as known by the server
-    state = StringType(required = True, regex = r"(new)|(dispatched)|(received)|(completed)|(failed)")
+    state = "new"
+    """The state the command is in as known by the server"""
 
-    # The payload data of the command. Can be any arbitrary additional data specifying what exactly should happen
-    command_payload = DictType(BaseType)
+    command_payload: Union[None, Any] = None
+    """The payload data of the command. Can be any arbitrary additional data specifying what exactly should happen"""
 
-    # Response by the vessel, detailing how the command was processed
-    # If the the command failed, this should contain the reason why
-    response = DictType(BaseType)
+    response: Union[None, Any] = None
+    """
+    Response by the vessel, detailing how the command was processed
+    If the the command failed, this should contain the reason why
+    """
+
+class CommandSchema(make_safe_schema(Command)):
+    """
+    Commands are issued to vessels to make them perform and action
+    The vessel's computer has to retrieve them and report if they where
+    completed successfully
+    """
+
+    _id = fields.UUID(required = True)
+    """
+    The id of the command itself. This is to identify the command. Every new subsequent
+    command needs a new id to distinguish it
+    """
+
+    part_id = fields.UUID()
+    """
+    The id of the part that the command is for (Optional)
+    """
+
+    command_code = fields.String(required = True)
+    """The code that identifies the command, i.e. what action should be performed"""
+
+    create_time = fields.DateTime(required = True)
+    """Time at which the command was created"""
+
+    dispatch_time = fields.DateTime()
+    """
+    Time at which the command was dispatched to the vessel
+    If not set, the command was not yet dispatched
+    """
+
+    receive_time = fields.DateTime()
+    """
+    Time at which the command was received by the vessel
+    If not set, the command was not yet received by the vessel
+    """
+
+    complete_time = fields.DateTime()
+    """
+    Time at which the vessel confirmed the successful or unsuccessful execution of the command
+    If not set, the command was yet completed or it failed
+    """
+
+    state = fields.String(required = True, validate= validate.Regexp(r"(new)|(dispatched)|(received)|(completed)|(failed)"))
+    """The state the command is in as known by the server"""
+
+    command_payload = fields.Raw()
+    """The payload data of the command. Can be any arbitrary additional data specifying what exactly should happen"""
+
+    response = fields.Raw()
+    """
+    Response by the vessel, detailing how the command was processed
+    If the the command failed, this should contain the reason why
+    """

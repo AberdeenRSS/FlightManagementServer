@@ -1,23 +1,60 @@
+from dataclasses import dataclass, field
+from typing import Any, TypeVar, cast
+from uuid import UUID
+from marshmallow import Schema, fields, post_load
+from helper.model_helper import SchemaExt, make_safe_schema
 
-from schematics.models import Model
-from schematics.types import StringType, UUIDType, ListType, ModelType, IntType
+from models.vessel_part import VesselPartSchema
 
-from models.vessel_part import VesselPart
+@dataclass
+class Vessel:
+    
+    _id: UUID
+    """
+    The id of the vessel (primary identifier)
+    """
 
-class Vessel(Model):
-    # The id of the vessel
-    _id = UUIDType(required=True)
+    _version: int
+    """
+    The version of this vessel
+    This is to track if any of the information about the vessel
+    changes. Old versions of the vessel can still be accessed
+    to allow old flights to still be valid
+    """
 
-    # The version of this vessel
-    # This is to track if any of the information about the vessel
-    # changes. Old versions of the vessel can still be accessed
-    # to allow old flights to still be valid
-    _version = IntType(required=False)
+    name = ''
+    """
+    Name of the vessel
+    """
 
-    # The name of the vessel
-    name = StringType(required=True)
+    parts: list[VesselPartSchema] = field(default_factory=list)
+    """
+    All the parts (components) of the vessel
+    """
 
-    # All parts of this vessel
-    parts = ListType(ModelType(VesselPart), default=[])
+class VesselSchema(make_safe_schema(Vessel)):
+
+    _id = fields.UUID(required=True)
+    """
+    The id of the vessel (primary identifier)
+    """
+
+    _version = fields.Int(required=False)
+    """
+    The version of this vessel
+    This is to track if any of the information about the vessel
+    changes. Old versions of the vessel can still be accessed
+    to allow old flights to still be valid
+    """
+
+    name = fields.String(required=True)
+    """
+    Name of the vessel
+    """
+
+    parts = fields.List(fields.Nested(VesselPartSchema), load_default=[], dump_default=[])
+    """
+    All the parts (components) of the vessel. The parts have hierarchy by linking between each other
+    """
 
 

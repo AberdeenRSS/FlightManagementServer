@@ -1,9 +1,8 @@
-from typing import Union
+from typing import Union, cast
 from json import dumps
 
-from helper.model_helper import import_list
 from .mongodb.mongodb_connection import get_db
-from models.vessel import Vessel
+from models.vessel import Vessel, VesselSchema
 
 def get_vessel_collection():
     db = get_db()
@@ -22,27 +21,27 @@ def create_or_update_vessel(vessel: Vessel) -> Vessel:
     vessels_raw = list(vessel_collection.find({'_id': str(vessel._id)}))
 
     if len(vessels_raw) > 0:
-        old_vessel = Vessel(vessels_raw[0])
+        old_vessel = VesselSchema().load_safe(Vessel, vessels_raw[0])
 
         # Put the versions equal to ensure comparison works
         vessel._version = old_vessel._version
 
         # Compare the two vessels, if they are equal don't update
         # the database and don't increase the version
-        if dumps(old_vessel.to_primitive()) == dumps(vessel.to_primitive()):
+        if VesselSchema().dumps(old_vessel) == VesselSchema().dumps(vessel):
             return old_vessel
 
         # Update the version of the current vessel to be one more than the current one
         vessel._version = old_vessel._version + 1
 
         # Put the historic vessel in the historic collection
-        get_historic_vessel_collection().insert_one(old_vessel.to_primitive())
+        get_historic_vessel_collection().insert_one(cast(dict, VesselSchema().dump(old_vessel)))
     else:
         # If this is the first time this vessel appears put it as version 0
         vessel._version = 1
 
     # Update or create the current vessel
-    result = vessel_collection.replace_one({'_id': str(vessel._id)}, vessel.to_primitive(), upsert = True)
+    result = vessel_collection.replace_one({'_id': str(vessel._id)}, cast(dict, VesselSchema().dump(vessel)), upsert = True)
 
     return vessel
 
@@ -51,7 +50,7 @@ def get_all_vessels() -> list[Vessel]:
     vessel_collection = get_vessel_collection()
     vessels_raw = list(vessel_collection.find({}))
 
-    return import_list(vessels_raw, Vessel)
+    return VesselSchema().load_list_safe(Vessel, vessels_raw)
 
 # Gets the current version of the vessel
 def get_vessel(_id: str) -> Union[Vessel, None]:
@@ -59,7 +58,7 @@ def get_vessel(_id: str) -> Union[Vessel, None]:
     vessels_raw = list(vessel_collection.find({"_id": _id}))
 
     if len(vessels_raw) > 0:
-        return Vessel(vessels_raw[0])
+        return VesselSchema().load_safe(Vessel, vessels_raw[0])
 
     return None
 
@@ -68,6 +67,6 @@ def get_historic_vessel(_id: str, _version: int):
     vessel_collection = get_historic_vessel_collection()
     vessels_raw = list(vessel_collection.find({"_id": _id, "_version": _version}))
     if len(vessels_raw) > 0:
-        return Vessel(vessels_raw[0])
+        return VesselSchema().load_safe(Vessel, vessels_raw[0])
 
     return None

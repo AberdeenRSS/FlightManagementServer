@@ -4,9 +4,8 @@ from flask import current_app
 from pymongo import collection, database
 from blinker import Namespace, NamedSignal
 
-from helper.model_helper import export_list, import_list
-from models.command import Command
-from models.flight_measurement import FlightMeasurement
+from models.command import CommandSchema
+from models.flight_measurement import FlightMeasurementSchema
 from services.data_access.common.collection_managment import get_or_init_collection
 
 #region Signals
@@ -40,7 +39,7 @@ def get_or_init_command_collection(flight_id: str) -> collection.Collection:
 #endregion
 
 # Inserts new measured flight data
-def insert_commands(commands: list[Command], flight_id: str):
+def insert_commands(commands: list[CommandSchema], flight_id: str):
 
     collection = get_or_init_command_collection(flight_id)
 
@@ -59,13 +58,13 @@ def insert_commands(commands: list[Command], flight_id: str):
     get_command_new_signal().send(current_app._get_current_object(), flight_id=flight_id, commands = commands)  # type: ignore
 
 
-def get_commands_in_range(flight_id: str, start: datetime, end: datetime) -> list[Command]:
+def get_commands_in_range(flight_id: str, start: datetime, end: datetime) -> list[CommandSchema]:
     collection = get_or_init_command_collection(flight_id)
 
     # Get all measurements in the date range
     res = list(collection.find({'create_time': { '$gte': start, '$lt': end }  }).limit(1000))
 
-    return import_list(res, Command)
+    return import_list(res, CommandSchema)
 
 # def get_not_received_commands(flight_id: str):
 #     collection = get_or_init_command_collection(flight_id)

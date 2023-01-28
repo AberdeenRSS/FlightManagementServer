@@ -1,9 +1,9 @@
 from flask_socketio import SocketIO, join_room
 
 from flask import current_app
-from helper.model_helper import export_list
 
 from middleware.auth.requireAuth import socket_authenticated_only
+from models.flight_measurement import FlightMeasurementSchema
 from services.data_access.flight_data import flight_data_signal, NEW_FLIGHT_DATA
 from blinker import signal
 
@@ -21,7 +21,7 @@ def get_on_new_flight_data(socketio):
         measurements    = kw['measurements']
 
         msg = {
-            'measurements': export_list(measurements),
+            'measurements': FlightMeasurementSchema().dump_list(measurements),
             'flight_id': flight_id,
             'vessel_part': vessel_part
         }

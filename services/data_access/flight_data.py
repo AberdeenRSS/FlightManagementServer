@@ -4,8 +4,7 @@ from flask import current_app
 from pymongo import database
 from blinker import Namespace, signal
 
-from helper.model_helper import export_list, import_list
-from models.flight_measurement import FlightMeasurement, FlightMeasurementSchema, FlightMeasurementSeriesIdentifier
+from models.flight_measurement import FlightMeasurement, FlightMeasurementDescriptor, FlightMeasurementSchema, FlightMeasurementDescriptorSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema
 from services.data_access.common.collection_managment import get_or_init_collection
 
 
@@ -62,7 +61,7 @@ def get_date_grouping(resolution: str):
         date_id.popitem()
     return date_id
 
-def get_averaging(schemas: list[FlightMeasurementSchema]):
+def get_averaging(schemas: list[FlightMeasurementDescriptor]):
     res = dict()
 
     for schema in schemas:
@@ -76,7 +75,7 @@ def get_averaging(schemas: list[FlightMeasurementSchema]):
 
     return res
 
-def get_aggregated_result_projection(schemas: list[FlightMeasurementSchema]):
+def get_aggregated_result_projection(schemas: list[FlightMeasurementDescriptor]):
     res = dict()
 
     for schema in schemas:
@@ -116,7 +115,7 @@ def insert_flight_data(measurements: list[FlightMeasurement], flight_id: str, ve
 
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
-    measurements_raw = export_list(measurements)
+    measurements_raw = FlightMeasurementSchema().dump_list(measurements)
 
     for m in measurements_raw:
         m['_datetime'] = datetime.fromisoformat(m['_datetime'])
@@ -135,9 +134,9 @@ def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifie
 
     debsonify_measurements(res)
 
-    return import_list(res, FlightMeasurement)
+    return FlightMeasurementSchema().load_list_safe(FlightMeasurementSchema, res)
 
-def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Union['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementSchema] ):
+def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Union['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementDescriptor] ):
 
     match_stage = {
         '$match': {
@@ -174,7 +173,6 @@ def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentif
 
     # res = list(collection.aggregate(dummy))
     
-
     debsonify_measurements(res)
 
     return res
