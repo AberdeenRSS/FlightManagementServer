@@ -1,35 +1,59 @@
 from flask_socketio import SocketIO, join_room
 
 from flask import current_app
-from helper.model_helper import export_list
 
 from middleware.auth.requireAuth import socket_authenticated_only
-from services.data_access.command import get_command_new_signal
+from models.command import CommandSchema
+from services.data_access.command import get_commands_new_signal, get_command_update_signal
 from blinker import signal
 
 new_command_event = 'command.new'
+update_command_event = 'command.update'
+
 
 def get_command_room(flight_id: str):
     return f'command.flight_id[{flight_id}]'
 
-def get_on_new_command(socketio):
+def make_on_new_command(socketio):
 
     def on_new_command(sender, **kw):
 
         flight_id = kw['flight_id']
         commands = kw['commands']
 
-        socketio.emit(new_command_event, {'commands': export_list(commands)}, to=get_command_room)
+        msg = {
+            'commands': CommandSchema(many=True).dump_list(commands),
+            'flight_id': flight_id
+        }
+
+        socketio.emit(new_command_event, msg, to=get_command_room(flight_id))
 
     return on_new_command
 
+def make_on_update_command(socketio):
+
+    def on_update_command(sender, **kw):
+
+        flight_id = kw['flight_id']
+        commands = kw['command']
+
+        msg = {
+            'command': CommandSchema().dump(commands),
+            'flight_id': flight_id
+        }
+
+        socketio.emit(update_command_event, msg, to=get_command_room(flight_id))
+
+    return on_update_command
+
 def init_command_controller(socketio: SocketIO):
 
-    s = get_command_new_signal()
+    new_signal = get_commands_new_signal()
+    update_signal = get_command_update_signal()
 
     # Connect the data access signal to emit flight data events
-    s.connect(get_on_new_command(socketio), weak=False)
-
+    new_signal.connect(make_on_new_command(socketio), weak=False)
+    update_signal.connect(make_on_update_command(socketio), weak=False)
 
     @socketio.on('command.subscribe')
     @socket_authenticated_only

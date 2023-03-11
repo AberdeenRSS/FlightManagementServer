@@ -1,62 +1,80 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Union
-from uuid import UUID
+from uuid import UUID, uuid4
 from marshmallow import Schema, fields
-from models.flight_measurement import FlightMeasurement, FlightMeasurementDescriptorSchema
+from models.command import CommandInfo, CommandInfoSchema
+from models.flight_measurement import FlightMeasurement, FlightMeasurementDescriptor, FlightMeasurementDescriptorSchema
 from models.vessel import VesselSchema
 from helper.model_helper import make_safe_schema
 
+FLIGHT_DEFAULT_HEAD_TIME = timedelta(minutes=2)
+"""
+A flight that is still ongoing gets this amount of time
+added to its end time from utcnow by default
+"""
+
+FLIGHT_MINIMUM_HEAD_TIME = timedelta(minutes=1)
+"""
+This is the minimum time the end of a flight can be ahead,
+before it needs to be extended
+"""
+
 @dataclass
 class Flight:
-
-    _id: UUID
-    """
-    The id of the flight. (Primary identifier)
-    """
-
-    _vessel_id: UUID
-    """
-    The id of the vessel that is performing this flight
-    """
-
-    _vessel_version: int
-    """
-    The version of the vessel this flight was based on
-    This is important if the vessel gets modified later to make
-    sure all the flight information can still be matched up accordingly
-    """
-
-    name = ""
 
     start: datetime
     """
     When the flight started
     """
 
+    _id: UUID = uuid4()
+    """
+    The id of the flight. (Primary identifier)
+    """
+
+    _vessel_id: UUID = UUID(int=0)
+    """
+    The id of the vessel that is performing this flight
+    """
+
+    _vessel_version: int = 0
+    """
+    The version of the vessel this flight was based on
+    This is important if the vessel gets modified later to make
+    sure all the flight information can still be matched up accordingly
+    """
+
+    name: str = ""
+
     end: Union[datetime, None] = None
     """
     When the flight ended
     """
 
-    measured_parts: dict[str, list[FlightMeasurement]] = field(default_factory=dict)
+    measured_parts: dict[str, list[FlightMeasurementDescriptor]] = field(default_factory=dict)
     """
     The list of vessel parts that have measurements for and how those measurements will look like
     """
 
+    available_commands: dict[str, CommandInfo] = field(default_factory=dict)
+    """
+    List of available commands and their json schemas. The keys have to be the part the command is issued to
+    """
+
 class FlightSchema(make_safe_schema(Flight)):
 
-    _id = fields.UUID(required = True)
+    _id = fields.UUID(required = False)
     """
     The id of the flight. (Primary identifier)
     """
 
-    _vessel_id = fields.UUID(required = True)
+    _vessel_id = fields.UUID(required = False)
     """
     The id of the vessel that is performing this flight
     """
 
-    _vessel_version = fields.Int(required = True)
+    _vessel_version = fields.Int(required = False)
     """
     The version of the vessel this flight was based on
     This is important if the vessel gets modified later to make
@@ -70,7 +88,7 @@ class FlightSchema(make_safe_schema(Flight)):
     When the flight started
     """
 
-    end = fields.DateTime()
+    end = fields.DateTime(allow_none= True)
     """
     When the flight ended
     """
@@ -80,3 +98,7 @@ class FlightSchema(make_safe_schema(Flight)):
     The list of vessel parts that have measurements for and how those measurements will look like
     """
 
+    available_commands = fields.Dict(keys= fields.Str(), values= fields.Nested(CommandInfoSchema))
+    """
+    List of available commands and their json schemas. The keys have to be the part the command is issued to
+    """

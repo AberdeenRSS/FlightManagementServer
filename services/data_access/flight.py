@@ -1,7 +1,21 @@
 from typing import Union, cast
 
+from blinker import NamedSignal, Namespace
+from flask import current_app
+
 from .mongodb.mongodb_connection import get_db
 from models.flight import Flight, FlightSchema
+
+FLIGHT_NEW = 'FLIGHT_NEW'
+FLIGHT_UPDATE = 'FLIGHT_UPDATE'
+
+flight_signals = Namespace()
+
+def get_flight_new_signal() -> NamedSignal:
+    return flight_signals.signal(FLIGHT_NEW)
+
+def get_flight_update_signal() -> NamedSignal:
+    return flight_signals.signal(FLIGHT_UPDATE)
 
 def get_flight_collection():
     db = get_db()
@@ -11,6 +25,11 @@ def get_flight_collection():
 def create_or_update_flight(flight: Flight) -> Flight:
     collection = get_flight_collection()
     result = collection.replace_one({'_id': str(flight._id)}, FlightSchema().dump_single(flight), upsert = True)
+
+    if result.upserted_id is not None:
+        get_flight_update_signal().send(current_app._get_current_object(), flight = flight)  # type: ignore
+    else:
+        get_flight_new_signal().send(current_app._get_current_object(), flight = flight)  # type: ignore
 
     return flight
 

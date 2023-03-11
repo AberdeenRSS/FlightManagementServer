@@ -1,10 +1,12 @@
 
-from typing import Any, TypeVar, Union, cast
+from typing import Any, Type, TypeVar, Union, cast
 from marshmallow import Schema, fields, post_load
 
 U = TypeVar("U")
 
 class SchemaExt(Schema):
+
+    data_class: type
 
     def load_safe(self, dataclass: type[U], data) -> U:
         return dataclass(self.load(data))
@@ -26,34 +28,18 @@ def make_safe_schema(dataclass: type):
 
     class SchemaSafe(SchemaExt):
 
+        data_class = dataclass
+
         @post_load
         def after_load(self, data, **kwargs):
             return dataclass(**data) # type: ignore
 
-        def load_safe(self, dataclass: type[U], data) -> U:
-            return cast(dataclass, self.load(data))
+        def load_safe(self, dataclass: type[U], data, **kwargs) -> U:
+            return cast(dataclass, self.load(data, **kwargs))
         
-        def load_list_safe(self, dataclass: type[U], data) -> list[U]:
-            return cast(list[dataclass], self.load(data, many=True))
+        def load_list_safe(self, dataclass: type[U], data, **kwargs) -> list[U]:
+            return cast(list[dataclass], self.load(data, many=True, **kwargs))
 
     return SchemaSafe
 
 T = TypeVar("T", bound=Schema)
-
-# def import_list(items: Union[list[str], list[Any]], t: type[T]) -> list[T]:
-
-#     res = list()
-
-#     for i in items:
-#         res.append(t(i))
-    
-#     return res
-
-# def export_list(itmes: list[T]) -> list[object]:
-    
-#     res = list()
-
-#     for i in itmes:
-#         res.append(i.to_primitive())
-    
-#     return res

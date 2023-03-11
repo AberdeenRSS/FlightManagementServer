@@ -15,7 +15,7 @@ def init_swagger(app: Flask):
     template = spec.to_flasgger(app, definitions=all_models)
 
     template['specs_route'] = "/apidocs/"
-    swagger =  Swagger(app, template=template, parse=True)
+    swagger =  Swagger(app, template=template, parse=False)
 
     return swagger
  

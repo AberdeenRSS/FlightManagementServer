@@ -16,12 +16,36 @@ vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
 @vessel_api.route("/register", methods = ['POST'])
 @auth_required
 def registerVessel():
+    """
+    Method to be called by a vessel to register itself. 
+    The vessel is supposed to transmit how it is made up so others know what data
+    it can provide and what commands it can receive. If a vessel changes
+    over time the old version of the vessel will be saved and the new information
+    will then be used. All old flights that where performed with a previous version
+    of the vessel can therefore still be used with the old version
+    ---
+    parameters:
+      - name: body
+        required: true
+        in: body
+        schema:
+          $ref: "#/definitions/Vessel"
+        description: The information about the vessel, including what parts it is made out of
+    responses:
+      200:
+        description: The resulting vessel (contains the new version that was chosen by the server)
+        schema:
+          $ref: "#/definitions/Vessel"
+    """
 
-    vessel = VesselSchema().load_safe(Vessel, request.get_json())
+    raw_vessel = cast(dict, request.get_json())
+
     user_info = cast(User, get_user_info())
-
     # Use the identity of the vessel as its id -> Only one entry per authentication code
-    vessel._id = UUID(user_info.unique_id)
+    raw_vessel['_id'] = UUID(user_info.unique_id)
+
+    vessel = VesselSchema().load_safe(Vessel, raw_vessel)
+
 
     acc = create_or_update_vessel(vessel)
 
@@ -30,6 +54,18 @@ def registerVessel():
 @vessel_api.route("/get_all", methods = ['GET'])
 @auth_required
 def get_all():
+    """
+    Returns all vessels known to server
+    ---
+    responses:
+      200:
+        description: All vessels
+        schema:
+          type: array
+          items:
+            $ref: "#/definitions/Vessel"
+    """
+
     vessels = get_all_vessels()
     return VesselSchema(many=True).dumps(vessels)
 

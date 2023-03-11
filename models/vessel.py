@@ -4,7 +4,7 @@ from uuid import UUID
 from marshmallow import Schema, fields, post_load
 from helper.model_helper import SchemaExt, make_safe_schema
 
-from models.vessel_part import VesselPartSchema
+from models.vessel_part import VesselPart, VesselPartSchema
 
 @dataclass
 class Vessel:
@@ -14,7 +14,7 @@ class Vessel:
     The id of the vessel (primary identifier)
     """
 
-    _version: int
+    _version: int = 0
     """
     The version of this vessel
     This is to track if any of the information about the vessel
@@ -22,12 +22,12 @@ class Vessel:
     to allow old flights to still be valid
     """
 
-    name = ''
+    name: str = ''
     """
     Name of the vessel
     """
 
-    parts: list[VesselPartSchema] = field(default_factory=list)
+    parts: list[VesselPart] = field(default_factory=list)
     """
     All the parts (components) of the vessel
     """

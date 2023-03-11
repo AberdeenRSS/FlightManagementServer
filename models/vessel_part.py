@@ -11,16 +11,16 @@ class VesselPart:
     ID of the part. Primary identifier
     """
 
-    name = ""
+    name: str = ""
 
-    part_type = ""
+    part_type: str = ""
     """
     The type of the part. This is supposed to be used as a quick identifier
     to group the parts or to visualize them. This shouldn't be used to
     describe the capabilities of the part
     """
 
-    virtual = False
+    virtual: bool = False
     """
     Whether or not the component actually exist extend physically
     or if it is just a virtual capability of the vessel
@@ -55,7 +55,7 @@ class VesselPartSchema(make_safe_schema(VesselPart)):
     or if it is just a virtual capability of the vessel
     """
 
-    parent = fields.UUID(required=False)
+    parent = fields.UUID(required=False, allow_none=True)
     """
     The _id of the parent of this part
     """

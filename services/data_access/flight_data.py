@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union
+from typing import Union, cast
 from flask import current_app
 from pymongo import database
 from blinker import Namespace, signal
@@ -91,6 +91,8 @@ def get_aggregated_result_projection(schemas: list[FlightMeasurementDescriptor])
 def debsonify_measurements(measurements: list[dict]):
     for r in measurements:
         r['_id'] = str(r['_id'])
+        if '_datetime' in r:
+            r['_datetime'] = cast(datetime, r['_datetime']).isoformat()
 
 #endregion
 

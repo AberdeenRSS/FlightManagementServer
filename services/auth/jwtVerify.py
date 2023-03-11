@@ -3,9 +3,7 @@ from flask import g, json
 import jwt
 from jwt import PyJWKClient
 from cryptography.hazmat.primitives import serialization
-
-azure_public_keys_client = 'azure_public_keys_client'
-audience = 'api://dffc1b9f-47ce-4ba4-a925-39c61eab50ba'
+from flask import current_app
 
 azure_keys_jwk_client = None
 
@@ -28,11 +26,13 @@ def try_decode_token(token):
 
     public_key = jwtPublicKeyClient.get_signing_key_from_jwt(token)
 
+    audience = current_app.config["audience"]
+
     decoded = jwt.decode(
         token, 
         public_key.key,
         [token_alg],
-        audience=audience
+        audience=f'api://{audience}'
     )
 
     return decoded

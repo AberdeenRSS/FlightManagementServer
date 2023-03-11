@@ -79,11 +79,11 @@ def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementDescriptorSchem
 
     for schema in schemas:
         if schema.type == 'string':
-            res_types[schema.name] = fields.String()
+            res_types[schema.name] = fields.String(required=False, allow_none=True)
         elif schema.type == 'int':
-            res_types[schema.name] = fields.Int()
+            res_types[schema.name] = fields.Int(required=False, allow_none=True)
         elif schema.type == 'float':
-            res_types[schema.name] = fields.Float()
+            res_types[schema.name] = fields.Float(required=False, allow_none=True)
         else:
             raise NotImplementedError(f'Schema type {schema.type} not supported')
         

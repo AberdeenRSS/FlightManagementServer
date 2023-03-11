@@ -69,7 +69,7 @@ def auth_required(f):
 
         error_msg = try_authenticate_http()
         if error_msg:
-            flash(error_msg)
+            return error_msg, 401
     
         return f(*args, **kwargs)
     return decorator
