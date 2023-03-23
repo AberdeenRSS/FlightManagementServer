@@ -6,7 +6,7 @@ from middleware.auth.requireAuth import auth_required
 
 from models.vessel import VesselSchema, Vessel
 from services.auth.jwt_user_info import User, get_user_info
-from services.data_access.vessel import create_or_update_vessel, get_all_vessels
+from services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel
 
 
 
@@ -53,21 +53,66 @@ async def registerVessel():
 @vessel_api.get("/get_all")
 @auth_required
 async def get_all():
-    # """
-    # Returns all vessels known to server
-    # ---
-    # responses:
-    #   200:
-    #     description: All vessels
-    #     schema:
-    #       type: array
-    #       items:
-    #         $ref: "#/definitions/Vessel"
-    # """
+    """
+    Returns all vessels known to server
+    ---
+    responses:
+      200:
+        description: All vessels
+        schema:
+          type: array
+          items:
+            $ref: "#/definitions/Vessel"
+    """
 
     vessels = await get_all_vessels()
     res = VesselSchema(many=True).dumps(vessels)
     return res
+
+@vessel_api.get("/get/<vessel_id>/<version>")
+@auth_required
+async def get_vessel_historic(vessel_id: str, version: int):
+    """
+    Retrieves a historic version of a vessel
+    ---
+    parameters:
+      - name: vessel_id
+        required: true
+        in: path
+        type: string
+        description: The id of the vessel
+    - name: version
+        required: true
+        in: path
+        type: number
+        description: The version of the vessel to get
+    responses:
+      200:
+        description: The resulting vessel (contains the new version that was chosen by the server)
+        schema:
+          $ref: "#/definitions/Vessel"
+      404:
+        description: Vessel does not exist
+
+    """
+
+    vessel = await get_vessel(vessel_id)
+
+    if vessel is None:
+        return 'Vessel does not exist', 404
+    
+    if vessel._version == int(version):
+        return VesselSchema().dump(vessel)
+    
+    vessel_historic = await get_historic_vessel(vessel_id, version)
+
+    if vessel_historic is None:
+        return 'Vessel does not exist', 404
+
+    vessel = Vessel(_id = vessel_historic._id.id, _version=version, name=vessel_historic.name, parts=vessel_historic.parts)
+
+    return VesselSchema().dump(vessel)
+
 
 @vessel_api.route("/get_test_vessels", methods = ['GET'])
 async def get_test_vessels():
