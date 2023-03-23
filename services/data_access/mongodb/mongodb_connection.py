@@ -1,24 +1,23 @@
 from typing import Any, Mapping
-from flask import current_app, g
-from pymongo import MongoClient
-from pymongo.database import Database
+from quart import current_app, g
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 connection_string = None
 
 # Provide the mongodb atlas url to connect python to mongodb using pymongo
 full_connection_string = None
 
-def get_db() -> Database:
+def get_db() -> AsyncIOMotorDatabase: # type: ignore
 
     # Case for when there is no global context available
     # e.g. during setup
     if not g:
-        client = MongoClient(full_connection_string)
+        client = AsyncIOMotorClient(full_connection_string)
         return client['rocketry']
 
     if 'db' not in g:
         # Create a connection using MongoClient
-        client = MongoClient(full_connection_string)
+        client = AsyncIOMotorClient(full_connection_string)
         g.db = client
         
     return g.db['rocketry']

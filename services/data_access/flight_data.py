@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Union, cast
-from flask import current_app
-from pymongo import database
-from blinker import Namespace, signal
+from typing import Literal, Sequence, Union, cast
+from quart import current_app
+from blinker import NamedSignal, Namespace, signal
+from motor.core import AgnosticCollection, AgnosticDatabase
 
 from models.flight_measurement import FlightMeasurement, FlightMeasurementDescriptor, FlightMeasurementSchema, FlightMeasurementDescriptorSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema
 from services.data_access.common.collection_managment import get_or_init_collection
@@ -12,9 +12,9 @@ from services.data_access.common.collection_managment import get_or_init_collect
 
 epoch = datetime(1970, 1, 1)
 
-resolutions = ['decisecond', 'second', 'minute', 'hour', 'day', 'month']
+resolutions: Sequence[Literal['decisecond', 'second', 'minute', 'hour', 'day', 'month']] = ['decisecond', 'second', 'minute', 'hour', 'day', 'month']
 
-project_stage = {
+project_stage = { 
     '$project': {
         'dateParts': {
             '$dateToParts': {
@@ -98,22 +98,22 @@ def debsonify_measurements(measurements: list[dict]):
 
 #region Collection management
 
-def get_or_init_flight_data_collection(flight_id: str, vessel_part: str) -> database.Database:
+async def get_or_init_flight_data_collection(flight_id: str, vessel_part: str) -> AgnosticCollection:
 
-    def create_collection(db: database.Database, n: str):
-        return db.create_collection(n, timeseries = {
+    async def create_collection(db: AgnosticDatabase, n: str):
+        return await db.create_collection(n, timeseries = {
             'timeField': '_datetime',
             'granularity': 'seconds'
-        })
+        }) # type: ignore
 
-    return get_or_init_collection(f'flight_data_{flight_id.replace("-", "")}_part_{vessel_part.replace("-", "")}', create_collection)
+    return await get_or_init_collection(f'flight_data_{flight_id.replace("-", "")}_part_{vessel_part.replace("-", "")}', create_collection)
 
 #endregion
 
 # Inserts new measured flight data
-def insert_flight_data(measurements: list[FlightMeasurement], flight_id: str, vessel_part: str):
+async def insert_flight_data(measurements: list[FlightMeasurement], flight_id: str, vessel_part: str):
 
-    collection = get_or_init_flight_data_collection(flight_id, vessel_part)
+    collection = await get_or_init_flight_data_collection(flight_id, vessel_part)
 
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
@@ -122,23 +122,23 @@ def insert_flight_data(measurements: list[FlightMeasurement], flight_id: str, ve
     for m in measurements_raw:
         m['_datetime'] = datetime.fromisoformat(m['_datetime'])
 
-    res = collection.insert_many(measurements_raw)
+    res = await collection.insert_many(measurements_raw) # type: ignore
 
-    s = signal(NEW_FLIGHT_DATA)
+    s = cast(NamedSignal, signal(NEW_FLIGHT_DATA))
 
-    s.send(current_app._get_current_object(), flight_id=flight_id, measurements = measurements, vessel_part = vessel_part)
+    s.send(current_app._get_current_object(), flight_id=flight_id, measurements = measurements, vessel_part = vessel_part) # type: ignore
 
-def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurement]:
-    collection = get_or_init_flight_data_collection(str(series_identifier._flight_id), str(series_identifier._vessel_part_id))
+async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurement]:
+    collection = await get_or_init_flight_data_collection(str(series_identifier._flight_id), str(series_identifier._vessel_part_id))
 
     # Get all measurements in the date range
-    res = list(collection.find({'_datetime': { '$gte': start, '$lt': end }  }).limit(1000))
+    res = await collection.find({'_datetime': { '$gte': start, '$lt': end }  }).to_list(1000)
 
     debsonify_measurements(res)
 
-    return FlightMeasurementSchema().load_list_safe(FlightMeasurementSchema, res)
+    return FlightMeasurementSchema().load_list_safe(FlightMeasurement, res)
 
-def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Union['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementDescriptor] ):
+async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Literal['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementDescriptor] ):
 
     match_stage = {
         '$match': {
@@ -169,9 +169,9 @@ def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentif
 
     project_aggregated_stage['$project']['measured_values'].update(get_aggregated_result_projection(schemas))
 
-    collection = get_or_init_flight_data_collection(str(series_identifier._flight_id), str(series_identifier._vessel_part_id))
+    collection = await get_or_init_flight_data_collection(str(series_identifier._flight_id), str(series_identifier._vessel_part_id))
 
-    res = list(collection.aggregate([match_stage, project_stage, group_stage, project_aggregated_stage]))
+    res = await collection.aggregate([match_stage, project_stage, group_stage, project_aggregated_stage]).to_list(1000)
 
     # res = list(collection.aggregate(dummy))
     

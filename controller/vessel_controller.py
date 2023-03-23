@@ -1,7 +1,7 @@
 from typing import cast
 from uuid import UUID, uuid4
-from flask import Blueprint
-from flask import request, flash, g, jsonify
+from quart import Blueprint
+from quart import request, flash, g, jsonify
 from middleware.auth.requireAuth import auth_required
 
 from models.vessel import VesselSchema, Vessel
@@ -15,7 +15,7 @@ vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
 # Method for a vessel to register
 @vessel_api.route("/register", methods = ['POST'])
 @auth_required
-def registerVessel():
+async def registerVessel():
     """
     Method to be called by a vessel to register itself. 
     The vessel is supposed to transmit how it is made up so others know what data
@@ -38,7 +38,7 @@ def registerVessel():
           $ref: "#/definitions/Vessel"
     """
 
-    raw_vessel = cast(dict, request.get_json())
+    raw_vessel = cast(dict, await request.get_json())
 
     user_info = cast(User, get_user_info())
     # Use the identity of the vessel as its id -> Only one entry per authentication code
@@ -46,31 +46,31 @@ def registerVessel():
 
     vessel = VesselSchema().load_safe(Vessel, raw_vessel)
 
-
-    acc = create_or_update_vessel(vessel)
+    acc = await create_or_update_vessel(vessel)
 
     return VesselSchema().dumps(acc)
 
-@vessel_api.route("/get_all", methods = ['GET'])
+@vessel_api.get("/get_all")
 @auth_required
-def get_all():
-    """
-    Returns all vessels known to server
-    ---
-    responses:
-      200:
-        description: All vessels
-        schema:
-          type: array
-          items:
-            $ref: "#/definitions/Vessel"
-    """
+async def get_all():
+    # """
+    # Returns all vessels known to server
+    # ---
+    # responses:
+    #   200:
+    #     description: All vessels
+    #     schema:
+    #       type: array
+    #       items:
+    #         $ref: "#/definitions/Vessel"
+    # """
 
-    vessels = get_all_vessels()
-    return VesselSchema(many=True).dumps(vessels)
+    vessels = await get_all_vessels()
+    res = VesselSchema(many=True).dumps(vessels)
+    return res
 
 @vessel_api.route("/get_test_vessels", methods = ['GET'])
-def get_test_vessels():
+async def get_test_vessels():
     """
     Returns a test response. Returned vessel gets a new random uuid
     ---

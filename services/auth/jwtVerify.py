@@ -1,11 +1,14 @@
 import requests
-from flask import g, json
+from quart import g, json
 import jwt
 from jwt import PyJWKClient
 from cryptography.hazmat.primitives import serialization
-from flask import current_app
+from quart import current_app
+from os import environ
 
 azure_keys_jwk_client = None
+
+jwt_audience = environ.get('FLIGHT_MANAGEMENT_SERVER_JWT_AUDIENCE')
 
 def get_azure_public_keys_jwk_client():
     global azure_keys_jwk_client
@@ -26,7 +29,7 @@ def try_decode_token(token):
 
     public_key = jwtPublicKeyClient.get_signing_key_from_jwt(token)
 
-    audience = current_app.config["audience"]
+    audience = jwt_audience or current_app.config["audience"]
 
     decoded = jwt.decode(
         token, 

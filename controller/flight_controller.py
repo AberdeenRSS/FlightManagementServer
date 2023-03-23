@@ -1,6 +1,6 @@
 from typing import cast
-from flask import Blueprint
-from flask import request, flash, g, jsonify
+from quart import Blueprint
+from quart import request, flash, g, jsonify
 from middleware.auth.requireAuth import auth_required
 from uuid import uuid4
 from datetime import datetime, timedelta
@@ -18,7 +18,7 @@ flight_controller = Blueprint('flight', __name__, url_prefix='/flight')
 # Method for a vessel to register
 @flight_controller.route("/create", methods = ['POST'])
 @auth_required
-def create_flight():
+async def create_flight():
     """
     Creates a flight
     ---
@@ -39,7 +39,7 @@ def create_flight():
         description: Returned if the user creating the vessel is not a vessel themselves
     """
 
-    flight = FlightSchema().load_safe(Flight, request.get_json(), partial=True)
+    flight = FlightSchema().load_safe(Flight, await request.get_json(), partial=True)
     user_info = cast(User, get_user_info())
 
     # Create a new random uuid for the flight
@@ -50,7 +50,7 @@ def create_flight():
     flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
 
     # Load the vessel to ensure it exists and to get its current version
-    vessel = get_vessel(str(flight._vessel_id))
+    vessel = await get_vessel(str(flight._vessel_id))
 
     if vessel is None:
         return f'Vessel {flight._vessel_id} does not exist yet. Please create the vessel before creating a flight for it', 400
@@ -61,13 +61,13 @@ def create_flight():
     # Assign the correct version
     flight._vessel_version = vessel._version
 
-    acc = create_or_update_flight(flight)
+    acc = await create_or_update_flight(flight)
 
     return FlightSchema().dumps(acc)
 
 @flight_controller.route("/get_all/<vessel_id>", methods = ['GET'])
 @auth_required
-def get_all(vessel_id):
+async def get_all(vessel_id):
     """
     Fetches all flights that the passed vessel ever performed
     ---
@@ -86,6 +86,6 @@ def get_all(vessel_id):
             $ref: "#/definitions/Flight"
     """
 
-    flights = get_all_flights_for_vessels(str(vessel_id))
+    flights = await get_all_flights_for_vessels(str(vessel_id))
     return FlightSchema(many=True).dumps(flights)
 

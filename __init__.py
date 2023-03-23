@@ -1,5 +1,5 @@
-from flask import Flask, logging
-from flask_cors import CORS
+from quart import Quart
+from quart_cors import cors
 from controller.socketio.connection_controller import init_connection_controller
 from controller.socketio.init import init_socket_io_controller
 from services.data_access.init import init_data_access
@@ -8,9 +8,9 @@ from controller.vessel_controller import vessel_api
 from controller.flight_controller import flight_controller
 from controller.flight_data_controller import flight_data_controller
 from controller.command_controller import command_controller
-from flask_socketio import SocketIO
 from services.swagger.init_swagger import init_swagger
 from os import environ
+import socketio
 
 def create_app(debug=False):
 
@@ -18,7 +18,7 @@ def create_app(debug=False):
     init_data_access()
 
     # create app
-    app = Flask(__name__)
+    app = Quart(__name__)
 
     if debug:
         app.logger.setLevel('DEBUG')
@@ -32,26 +32,31 @@ def create_app(debug=False):
     app.config['CORS_HEADERS'] = 'Content-Type'
     app.config['SECRET_KEY'] = 'secret!'
 
+    app = cors(app, allow_origin='*')
+
     # Configure cross origin requests
-    CORS(app)
-    CORS(vessel_api)
-    CORS(flight_controller)
-    CORS(flight_data_controller)
+    # CORS(app)
+    # CORS(vessel_api)
+    # CORS(flight_controller)
+    # CORS(flight_data_controller)
 
     init_app(app)
 
     # Register controllers
-    app.register_blueprint(vessel_api)
+    app.register_blueprint(cors(vessel_api, allow_origin='*'))
     app.register_blueprint(flight_controller)
     app.register_blueprint(flight_data_controller)
     app.register_blueprint(command_controller)
 
 
-    socketio = SocketIO(app, cors_allowed_origins = '*')
-    init_socket_io_controller(socketio)
+    # socketio = SocketIO(app, cors_allowed_origins = '*')
 
-    init_swagger(app)
+    socketio_server = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+
+    init_socket_io_controller(socketio_server)
+
+    # init_swagger(app)
 
     app.logger.info('Started server')
 
-    return (app, socketio)
+    return (app, socketio_server)

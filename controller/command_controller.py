@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import cast
-from flask import Blueprint
-from flask import request, flash, g, jsonify
+from quart import Blueprint
+from quart import request, flash, g, jsonify
 from middleware.auth.requireAuth import auth_required
 from uuid import uuid4
 
@@ -19,7 +19,7 @@ command_controller = Blueprint('command', __name__, url_prefix='/command')
 
 @command_controller.route("/dispatch/<flight_id>", methods = ['POST'])
 @auth_required
-def dispatch_commands(flight_id: str):
+async def dispatch_commands(flight_id: str):
     """
     Dispatches a command to the vessel. Meant to be called from a ui/frontend or
     other type of client
@@ -51,7 +51,7 @@ def dispatch_commands(flight_id: str):
             description: The flight does not exist
     """
 
-    parsed_commands = request.get_json()
+    parsed_commands = await request.get_json()
 
     if not isinstance(parsed_commands, list):
         return f'Invalid json, commands have to be send as an array', 400
@@ -74,7 +74,7 @@ def dispatch_commands(flight_id: str):
         except AssertionError:
             return f'Command {command._id} has wrong format', 400
 
-    flight = get_flight(flight_id)
+    flight = await get_flight(flight_id)
 
     if flight is None:
         return 'Unknown flight', 404
@@ -107,15 +107,15 @@ def dispatch_commands(flight_id: str):
     # In case the end of the flight is coming near extend it
     if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
         flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
-        create_or_update_flight(flight)
+        await create_or_update_flight(flight)
 
-    insert_commands(commands, flight_id)
+    await insert_commands(commands, flight_id)
 
     return '', 200
 
 @command_controller.route("/confirm/<flight_id>", methods = ['POST'])
 @auth_required
-def confirm_command(flight_id: str):
+async def confirm_command(flight_id: str):
     """
     To be called by the vessel to confirm the the receipt or the
     processing of the command
@@ -145,7 +145,7 @@ def confirm_command(flight_id: str):
             description: The flight does not exist
     """
 
-    parsed_command = request.get_json()
+    parsed_command = await request.get_json()
 
     command = CommandSchema().load_safe(Command, parsed_command)
 
@@ -157,7 +157,7 @@ def confirm_command(flight_id: str):
     except AssertionError:
         return f'Command {command._id} has wrong format', 400
 
-    flight = get_flight(flight_id)
+    flight = await get_flight(flight_id)
 
     if flight is None:
         return 'Unknown flight', 404
@@ -197,15 +197,15 @@ def confirm_command(flight_id: str):
     # In case the end of the flight is coming near extend it
     if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
         flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
-        create_or_update_flight(flight)
+        await create_or_update_flight(flight)
 
-    update_command(command, flight_id)
+    await update_command(command, flight_id)
 
     return '', 200
 
 @command_controller.route("/get_range/<flight_id>/<start>/<end>/<command_type>/<vessel_part>", methods = ['GET'])
 @auth_required
-def get_range(flight_id: str, start: str, end: str, command_type: str, vessel_part: str,):
+async def get_range(flight_id: str, start: str, end: str, command_type: str, vessel_part: str,):
     """
     Gets all commands in the specified range
     ---
@@ -258,6 +258,6 @@ def get_range(flight_id: str, start: str, end: str, command_type: str, vessel_pa
     if vessel_part != 'all':
         part = vessel_part
 
-    values = get_commands_in_range(flight_id, datetime.fromisoformat(start), datetime.fromisoformat(end), part, command_t)
+    values = await get_commands_in_range(flight_id, datetime.fromisoformat(start), datetime.fromisoformat(end), part, command_t)
 
     return jsonify(CommandSchema().dump_list(values))

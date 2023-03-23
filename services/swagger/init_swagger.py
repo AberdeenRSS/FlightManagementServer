@@ -1,13 +1,13 @@
-from flask import Flask, request
+from quart import Quart, request
 from flasgger import Swagger, LazyString, LazyJSONEncoder
 from flasgger import swag_from
-from flask import Flask
+from quart import Quart
 from apispec.ext.marshmallow import MarshmallowPlugin
 from apispec_webframeworks.flask import FlaskPlugin
 from flasgger import APISpec, Swagger
 from models.index import all_models
 
-def init_swagger(app: Flask):
+def init_swagger(app: Quart):
 
 
     plugins = [FlaskPlugin(), MarshmallowPlugin()]

@@ -1,5 +1,5 @@
 from typing import Any, Union
-from flask import g, request
+from quart import g, request
 
 socket_users = dict()
 
@@ -14,7 +14,7 @@ class User:
     token: dict[str, Any]
 
     
-def set_user_info(raw_token: dict[str, Any]):
+def set_user_info(raw_token: dict[str, Any], sid: Union[str, None] = None):
 
     global socket_users
 
@@ -22,17 +22,22 @@ def set_user_info(raw_token: dict[str, Any]):
     user.unique_id = raw_token['sub']
     user.token = raw_token
 
-    if hasattr(request, 'sid'):  # type: ignore
-        socket_users[request.sid] = user # type: ignore
+    if sid is not None:  # type: ignore
+        socket_users[sid] = user # type: ignore
+    else:
+        g.rss_jwt_user = user
 
-    g.rss_jwt_user = user
-
-def get_user_info() -> Union[User, None]:
+def get_user_info(sid: Union[str,None]=None) -> Union[User, None]:
     """
     Retrieves the user information from the global context if available
     """
+
+    if sid is not None:
+        if sid in socket_users:
+            return socket_users[sid]
+        return None
+
     if 'rss_jwt_user' in g:
         return g.rss_jwt_user
-    if hasattr(request, 'sid') and request.sid in socket_users:  # type: ignore
-        return socket_users[request.sid]  # type: ignore
+   
     return None

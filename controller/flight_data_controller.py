@@ -1,10 +1,13 @@
+
+import asyncio
 from datetime import datetime
-from typing import cast
+from typing import Iterable, cast
 import uuid
-from flask import Blueprint
-from flask import request, flash, g, jsonify
+from quart import Blueprint
+from quart import request, flash, g, jsonify, current_app
 from middleware.auth.requireAuth import auth_required
 from models.flight_measurement import FlightMeasurement, FlightMeasurementSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema, getConcreteMeasurementSchema
+from itertools import groupby
 
 from models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME, FlightSchema
 from models.command import CommandSchema
@@ -19,7 +22,7 @@ flight_data_controller = Blueprint('flight_data', __name__, url_prefix='/flight_
 # Method for a vessel to register
 @flight_data_controller.route("/report/<flight_id>/<vessel_part>", methods = ['POST'])
 @auth_required
-def report_flight_data(flight_id: str, vessel_part: str):
+async def report_flight_data(flight_id: str, vessel_part: str):
     """
     Method to report flight data. 
     This is meant to be called by a vessel.
@@ -64,7 +67,7 @@ def report_flight_data(flight_id: str, vessel_part: str):
     """
 
     user_info = cast(User, get_user_info())
-    flight = get_flight(flight_id)
+    flight = await get_flight(flight_id)
 
     if flight is None:
         return f'Flight {flight_id}', 400
@@ -79,26 +82,123 @@ def report_flight_data(flight_id: str, vessel_part: str):
     
     measurement_schema = getConcreteMeasurementSchema(measured_parts[vessel_part])
     
-    parsed_data = request.get_json()
+    parsed_data = await request.get_json()
 
-    if not parsed_data or not isinstance(parsed_data, list):
+    if not parsed_data or not isinstance(parsed_data, Iterable):
         return 'Invalid json (not an array)', 400
     
     # In case the end of the flight is coming near extend it
     if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
         flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
-        create_or_update_flight(flight)
+        await create_or_update_flight(flight)
 
     # Import the measurements with the specified schema
     measurements = measurement_schema().load_list_safe(FlightMeasurement, parsed_data)
 
-    insert_flight_data(measurements, flight_id, vessel_part)
+    await insert_flight_data(measurements, flight_id, vessel_part)
+
+    return jsonify({'success': True})
+
+# Method for a vessel to register
+@flight_data_controller.route("/report/<flight_id>", methods = ['POST'])
+@auth_required
+async def report_flight_data_combined(flight_id: str):
+    """
+    Method to report flight data for multiple parts
+    This is meant to be called by a vessel.
+    The vessel needs to tell the server which flight this data is for as well as
+    which part of the vessel the data is for. The data needs to be transmitted as
+    a list of FlightMeasurement. A flight measurement contains the datetime the
+    measurement is for as well as a dictionary of the measured values. Note that
+    the measured values and datatypes need to be previously registered correctly
+    when creating the flight, through setting the measured parts array
+    ---
+    parameters:
+      - name: flight_id
+        required: true
+        in: path
+        type: string
+        description: The id of the flight the data is reported for
+      - name: vessel_part
+        required: true
+        in: path
+        type: string
+        description: The vessel part the data is coming from
+      - name: body
+        required: true
+        in: body
+        schema:
+          type: array
+          items:
+            $ref: "#/definitions/FlightMeasurement"
+        description: A list of measurements that is being reported
+    responses:
+      200:
+        description: 
+        schema:
+          type: object
+          properties:
+            success: 
+              type: boolean
+      400:
+        description: The flight the data is reported for does not yet exist or the measurement data was not in the expected format
+      401:
+        description: The user reporting the data was not the vessel
+    """
+
+    user_info = cast(User, get_user_info())
+    flight = await get_flight(flight_id)
+
+    if flight is None:
+        return f'Flight {flight_id}', 400
+
+    if str(flight._vessel_id) != user_info.unique_id:
+        return f'Only the vessel itself is allowed to report flight data', 401
+
+    parsed_data = await request.get_json()
+
+    if parsed_data is None or not isinstance(parsed_data, Iterable):
+        return 'Invalid json (not an array)', 400
+    
+    parsed_data = cast(list[dict], parsed_data)
+    
+    if len(parsed_data) < 1:
+        return '', 200
+    
+    for d in parsed_data:
+        if not isinstance(d, dict):
+            return 'Measurements not in dictionary format', 400
+        if 'part_id' not in d:
+            return 'part_id needs to be provided for each measurement when using combined method', 400
+    
+    # In case the end of the flight is coming near extend it
+    if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
+        flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
+        await create_or_update_flight(flight)
+
+    grouped = groupby(parsed_data, lambda k: cast(str, cast(dict, k)['part_id']))
+
+    measured_parts = flight.measured_parts
+
+    jobs = list()
+    for part_id, g in grouped:
+
+        if part_id not in measured_parts:
+            return f'A measurement for part {part_id} cannot be stored, because the part was previously not specified to be measured in the flight', 400
+        
+        measurement_schema = getConcreteMeasurementSchema(measured_parts[part_id])
+
+        measurements = measurement_schema().load_list_safe(FlightMeasurement, g)
+
+        jobs.append(asyncio.create_task(insert_flight_data(measurements, flight_id, part_id)))
+
+    await asyncio.wait(jobs, return_when=asyncio.ALL_COMPLETED)
 
     return jsonify({'success': True})
 
 @flight_data_controller.route("/get_aggregated_range/<flight_id>/<vessel_part>/<resolution>/<start>/<end>", methods = ['GET'])
 @auth_required
-def get_aggregated(flight_id: str, vessel_part: str, resolution: str, start: str, end: str):
+async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, start: str, end: str):
     """
     Gets flight measurements for a specific part within the specified range at a specified resolution
     The flight data returned by this method is aggregated at a higher resolution. The avg, min and
@@ -146,7 +246,7 @@ def get_aggregated(flight_id: str, vessel_part: str, resolution: str, start: str
     if end.endswith('Z'):
         end = end[:-1]
 
-    flight = get_flight(flight_id)
+    flight = await get_flight(flight_id)
 
     if not flight:
         flash('Flight does not exist')
@@ -161,13 +261,13 @@ def get_aggregated(flight_id: str, vessel_part: str, resolution: str, start: str
     
     measurement_schema = measured_parts[vessel_part]
     
-    values = get_aggregated_flight_data(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end), resolution, measurement_schema)
+    values = await get_aggregated_flight_data(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end), resolution, measurement_schema) # type: ignore
 
     return jsonify(values)
 
 @flight_data_controller.route("/get_range/<flight_id>/<vessel_part>/<start>/<end>", methods = ['GET'])
 @auth_required
-def getRange(flight_id: str, vessel_part: str, start: str, end: str):
+async def getRange(flight_id: str, vessel_part: str, start: str, end: str):
     """
     Gets flight measurements for a specific part within the specified range.
     ---
@@ -205,7 +305,7 @@ def getRange(flight_id: str, vessel_part: str, start: str, end: str):
     if end.endswith('Z'):
         end = end[:-1]
 
-    flight = get_flight(flight_id)
+    flight = await get_flight(flight_id)
 
     if not flight:
         flash('Flight does not exist')
@@ -218,6 +318,6 @@ def getRange(flight_id: str, vessel_part: str, start: str, end: str):
     if vessel_part not in measured_parts:
         return jsonify(list())
     
-    values = get_flight_data_in_range(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end))
+    values = await get_flight_data_in_range(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end))
 
     return jsonify(values)

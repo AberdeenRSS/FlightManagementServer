@@ -1,8 +1,9 @@
 from datetime import datetime
-from typing import Any, Union, cast
-from flask import current_app
-from pymongo import collection, database
+from typing import Any, Coroutine, Union, cast
+from quart import current_app
 from blinker import Namespace, NamedSignal
+from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCollection
+from motor.core import AgnosticDatabase, AgnosticCollection
 
 from models.command import CommandSchema, Command
 from models.flight_measurement import FlightMeasurementSchema
@@ -26,15 +27,15 @@ def get_command_update_signal() -> NamedSignal:
 #region Collection management
 
 
-def get_or_init_command_collection(flight_id: str) -> collection.Collection:
+async def get_or_init_command_collection(flight_id: str):
 
-    def create_collection(db: database.Database, n: str):
-        return db.create_collection(n, timeseries = {
+    async def create_collection(db: AgnosticDatabase, n: str) -> AgnosticCollection:
+        return await db.create_collection(n, timeseries = {
             'timeField': 'create_time',
             'granularity': 'seconds'
-        })
+        }) # type: ignore
 
-    return get_or_init_collection(f'command_{flight_id.replace("-", "")}', create_collection)
+    return await get_or_init_collection(f'command_{flight_id.replace("-", "")}', create_collection)
 
 #endregion
 
@@ -46,9 +47,9 @@ def debsonify_commands(commands: list[dict]):
             r['create_time'] = cast(datetime, r['create_time']).isoformat()
 
 # Inserts new measured flight data
-def insert_commands(commands: list[Command], flight_id: str):
+async def insert_commands(commands: list[Command], flight_id: str):
 
-    collection = get_or_init_command_collection(flight_id)
+    collection = await get_or_init_command_collection(flight_id)
 
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
@@ -57,14 +58,14 @@ def insert_commands(commands: list[Command], flight_id: str):
     for m in commands_raw:
         m['create_time'] = datetime.fromisoformat(m['create_time'])
 
-    res = collection.insert_many(commands_raw)
+    res = await collection.insert_many(commands_raw) # type: ignore
 
     get_commands_new_signal().send(current_app._get_current_object(), flight_id=flight_id, commands = commands)  # type: ignore
 
 # Inserts new measured flight data
-def update_command(command: Command, flight_id: str):
+async def update_command(command: Command, flight_id: str):
 
-    collection = get_or_init_command_collection(flight_id)
+    collection = await get_or_init_command_collection(flight_id)
 
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
@@ -72,17 +73,17 @@ def update_command(command: Command, flight_id: str):
 
     command_raw['create_time'] = datetime.fromisoformat(command_raw['create_time'])
 
-    res = collection.replace_one({"_id": command._id}, command_raw)
+    res = await collection.replace_one({"_id": command._id}, command_raw) # type: ignore
 
     get_command_update_signal().send(current_app._get_current_object(), flight_id=flight_id, command = command)  # type: ignore
 
-def get_commands_in_range(flight_id: str, start: datetime, end: datetime, part: Union[None, str] = None, command_type: Union[None, str] = None) -> list[Command]:
+async def get_commands_in_range(flight_id: str, start: datetime, end: datetime, part: Union[None, str] = None, command_type: Union[None, str] = None) -> list[Command]:
     """
     Returns the list of commands in a certain range, regardless of their state
     
     Additional kwargs -
     """
-    collection = get_or_init_command_collection(flight_id)
+    collection = await get_or_init_command_collection(flight_id)
 
     query: dict[str, Any] = {
         'create_time': { '$gte': start, '$lt': end }  
@@ -96,7 +97,7 @@ def get_commands_in_range(flight_id: str, start: datetime, end: datetime, part: 
 
 
     # Get all measurements in the date range
-    res = list(collection.find(query).limit(1000))
+    res = await collection.find(query).to_list(1000) # type: ignore
 
     debsonify_commands(res)
 
