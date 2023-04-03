@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Union
 from uuid import UUID
 from marshmallow import Schema, fields, validate
@@ -77,7 +77,7 @@ class CommandSchema(make_safe_schema(Command)):
     _command_type = fields.String(required = True)
     """The code that identifies the command, i.e. what action should be performed"""
 
-    create_time = fields.DateTime(required = True, format='iso')
+    create_time = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
     """Time at which the command was created"""
 
     _part_id = fields.UUID(allow_none=True)
@@ -85,19 +85,19 @@ class CommandSchema(make_safe_schema(Command)):
     The id of the part that the command is for (Optional if the command is for the entire vessel)
     """
 
-    dispatch_time = fields.DateTime(allow_none=True)
+    dispatch_time = fields.AwareDateTime(allow_none = True, default_timezone=timezone.utc)
     """
     Time at which the command was dispatched to the vessel
     If not set, the command was not yet dispatched
     """
 
-    receive_time = fields.DateTime(allow_none=True)
+    receive_time = fields.AwareDateTime(allow_none = True, default_timezone=timezone.utc)
     """
     Time at which the command was received by the vessel
     If not set, the command was not yet received by the vessel
     """
 
-    complete_time = fields.DateTime(allow_none=True)
+    complete_time = fields.AwareDateTime(allow_none = True, default_timezone=timezone.utc)
     """
     Time at which the vessel confirmed the successful or unsuccessful execution of the command
     If not set, the command was yet completed or it failed

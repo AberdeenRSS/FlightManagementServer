@@ -13,11 +13,14 @@ from hypercorn.asyncio import serve
 def make_app():
 
     debug = bool(environ.get('FLIGHT_MANAGEMENT_SERVER_DEBUG'))
+    dockerized = bool(environ.get('DOCKERIZED'))
+
+    print(f'dockerized: {dockerized}')
 
     print(f'Starting server in {"Debug" if debug else "Production"} mode...')
 
     config = Config()
-    config.bind = ["localhost:5000"]  # As an example configuration setting
+    config.bind = ["0.0.0.0:5000" if dockerized else "localhost:5000"]  # As an example configuration setting
     config.debug = debug
     config.graceful_timeout 
 

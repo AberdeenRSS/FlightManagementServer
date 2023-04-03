@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from datetime import timezone
 from typing import Union
 from uuid import UUID, uuid4
 from marshmallow import Schema, fields
@@ -83,12 +84,12 @@ class FlightSchema(make_safe_schema(Flight)):
 
     name = fields.Str()
 
-    start = fields.DateTime(required = True)
+    start = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
     """
     When the flight started
     """
 
-    end = fields.DateTime(allow_none= True)
+    end = fields.AwareDateTime(allow_none = True, default_timezone=timezone.utc)
     """
     When the flight ended
     """

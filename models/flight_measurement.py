@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from time import strftime
 from typing import Type, Union
 import uuid
@@ -65,11 +65,31 @@ class FlightMeasurementSchema(make_safe_schema(FlightMeasurement)):
 
     _id = fields.String()
 
-    _datetime = fields.DateTime(required = True)
+    _datetime = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
     """The datetime the measurement is for (primary index)"""
 
     measured_values = fields.Dict(keys = fields.Str(), values = fields.Raw())
     """The measured values themselves"""
+
+    part_id = fields.UUID(optional=True, allow_none=True)
+    """Optional part id. Used to send the part over the network, not committed to database"""
+
+class FlightMeasurementAggregatedSchema(Schema):
+    """A single measurement relayed back by the model
+    """
+
+    _id = fields.Raw()
+
+    start_date = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
+    """The datetime the range starts"""
+
+    end_date = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
+    """The datetime the range starts"""
+
+    measured_values = fields.Raw()
+    """The measured values themselves"""
+
+    flight_id = fields.UUID(optional=True, allow_none=True)
 
     part_id = fields.UUID(optional=True, allow_none=True)
     """Optional part id. Used to send the part over the network, not committed to database"""

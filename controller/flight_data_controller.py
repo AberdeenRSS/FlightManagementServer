@@ -1,12 +1,12 @@
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, cast
 import uuid
 from quart import Blueprint
 from quart import request, flash, g, jsonify, current_app
 from middleware.auth.requireAuth import auth_required
-from models.flight_measurement import FlightMeasurement, FlightMeasurementSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema, getConcreteMeasurementSchema
+from models.flight_measurement import FlightMeasurement, FlightMeasurementAggregatedSchema, FlightMeasurementSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema, getConcreteMeasurementSchema
 from itertools import groupby
 
 from models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME, FlightSchema
@@ -90,6 +90,7 @@ async def report_flight_data(flight_id: str, vessel_part: str):
     # In case the end of the flight is coming near extend it
     if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
         flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
+        flight.end = flight.end.replace(tzinfo=timezone.utc)
         await create_or_update_flight(flight)
 
     # Import the measurements with the specified schema
@@ -172,15 +173,16 @@ async def report_flight_data_combined(flight_id: str):
             return 'part_id needs to be provided for each measurement when using combined method', 400
     
     # In case the end of the flight is coming near extend it
-    if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
+    if flight.end is not None and (flight.end - datetime.now(timezone.utc)) < FLIGHT_MINIMUM_HEAD_TIME:
         flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
+        flight.end = flight.end.replace(tzinfo=timezone.utc)
         await create_or_update_flight(flight)
 
     grouped = groupby(parsed_data, lambda k: cast(str, cast(dict, k)['part_id']))
 
     measured_parts = flight.measured_parts
 
-    jobs = list()
+    measurements_to_save = list()
     for part_id, g in grouped:
 
         if part_id not in measured_parts:
@@ -190,9 +192,9 @@ async def report_flight_data_combined(flight_id: str):
 
         measurements = measurement_schema().load_list_safe(FlightMeasurement, g)
 
-        jobs.append(asyncio.create_task(insert_flight_data(measurements, flight_id, part_id)))
+        measurements_to_save.extend(measurements)
 
-    await asyncio.wait(jobs, return_when=asyncio.ALL_COMPLETED)
+    await insert_flight_data(measurements_to_save, flight_id)
 
     return jsonify({'success': True})
 
@@ -241,11 +243,6 @@ async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, star
 
     series_identifier = FlightMeasurementSeriesIdentifier(_flight_id = uuid.UUID(flight_id), _vessel_part_id= uuid.UUID(vessel_part))
 
-    if start.endswith('Z'):
-        start = start[:-1]
-    if end.endswith('Z'):
-        end = end[:-1]
-
     flight = await get_flight(flight_id)
 
     if not flight:
@@ -263,7 +260,7 @@ async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, star
     
     values = await get_aggregated_flight_data(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end), resolution, measurement_schema) # type: ignore
 
-    return jsonify(values)
+    return FlightMeasurementAggregatedSchema(many=True).dumps(values)
 
 @flight_data_controller.route("/get_range/<flight_id>/<vessel_part>/<start>/<end>", methods = ['GET'])
 @auth_required

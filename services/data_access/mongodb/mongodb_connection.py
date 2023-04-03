@@ -12,12 +12,12 @@ def get_db() -> AsyncIOMotorDatabase: # type: ignore
     # Case for when there is no global context available
     # e.g. during setup
     if not g:
-        client = AsyncIOMotorClient(full_connection_string)
+        client = AsyncIOMotorClient(full_connection_string, uuidRepresentation='standard')
         return client['rocketry']
 
     if 'db' not in g:
         # Create a connection using MongoClient
-        client = AsyncIOMotorClient(full_connection_string)
+        client = AsyncIOMotorClient(full_connection_string, uuidRepresentation='standard')
         g.db = client
         
     return g.db['rocketry']

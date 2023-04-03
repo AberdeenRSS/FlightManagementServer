@@ -23,9 +23,8 @@ def get_on_new_flight_data(sio: Server):
         measurements    = kw['measurements']
 
         msg = {
-            'measurements': FlightMeasurementSchema().dump_list(measurements[-1:]),
-            'flight_id': flight_id,
-            'vessel_part': vessel_part
+            'measurements': FlightMeasurementSchema().dump_list(measurements),
+            'flight_id': flight_id
         }
 
         coroutine = sio.emit(new_flight_data_event, msg, to=get_flight_data_room(flight_id))
