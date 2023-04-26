@@ -1,7 +1,7 @@
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Iterable, cast
+from typing import Iterable, Tuple, Union, cast
 import uuid
 from quart import Blueprint
 from quart import request, flash, g, jsonify, current_app
@@ -11,6 +11,7 @@ from itertools import groupby
 
 from models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME, FlightSchema
 from models.command import CommandSchema
+from models.flight_measurement_compact import FlightMeasurementCompact, FlightMeasurementCompactSchema
 
 from services.auth.jwt_user_info import User, get_user_info
 from services.data_access.command import get_commands_in_range
@@ -19,7 +20,6 @@ from services.data_access.flight_data import insert_flight_data, get_flight_data
 
 flight_data_controller = Blueprint('flight_data', __name__, url_prefix='/flight_data')
 
-# Method for a vessel to register
 @flight_data_controller.route("/report/<flight_id>/<vessel_part>", methods = ['POST'])
 @auth_required
 async def report_flight_data(flight_id: str, vessel_part: str):
@@ -100,7 +100,6 @@ async def report_flight_data(flight_id: str, vessel_part: str):
 
     return jsonify({'success': True})
 
-# Method for a vessel to register
 @flight_data_controller.route("/report/<flight_id>", methods = ['POST'])
 @auth_required
 async def report_flight_data_combined(flight_id: str):
@@ -120,11 +119,6 @@ async def report_flight_data_combined(flight_id: str):
         in: path
         type: string
         description: The id of the flight the data is reported for
-      - name: vessel_part
-        required: true
-        in: path
-        type: string
-        description: The vessel part the data is coming from
       - name: body
         required: true
         in: body
@@ -197,6 +191,104 @@ async def report_flight_data_combined(flight_id: str):
     await insert_flight_data(measurements_to_save, flight_id)
 
     return jsonify({'success': True})
+
+@flight_data_controller.route("/report_compact/<flight_id>", methods = ['POST'])
+@auth_required
+async def report_flight_data_compact(flight_id: str):
+    """
+    Method to report flight data for multiple parts
+    This is meant to be called by a vessel.
+    The vessel needs to tell the server which flight this data is for as well as
+    which part of the vessel the data is for. The data needs to be transmitted as
+    a list of FlightMeasurement. A flight measurement contains the datetime the
+    measurement is for as well as a dictionary of the measured values. Note that
+    the measured values and datatypes need to be previously registered correctly
+    when creating the flight, through setting the measured parts array
+    ---
+    parameters:
+      - name: flight_id
+        required: true
+        in: path
+        type: string
+        description: The id of the flight the data is reported for\
+      - name: body
+        required: true
+        in: body
+        schema:
+          type: array
+          items:
+            $ref: "#/definitions/FlightMeasurementCompact"
+        description: A list of measurements that is being reported
+    responses:
+      200:
+        description: 
+        schema:
+          type: object
+          properties:
+            success: 
+              type: boolean
+      400:
+        description: The flight the data is reported for does not yet exist or the measurement data was not in the expected format
+      401:
+        description: The user reporting the data was not the vessel
+    """
+
+    user_info = cast(User, get_user_info())
+    flight = await get_flight(flight_id)
+
+    if flight is None:
+        return f'Flight {flight_id}', 400
+
+    if str(flight._vessel_id) != user_info.unique_id:
+        return f'Only the vessel itself is allowed to report flight data', 401
+
+    parsed_data = await request.get_json()
+
+    if parsed_data is None or not isinstance(parsed_data, Iterable):
+        return 'Invalid json (not an array)', 400
+    
+    parsed = FlightMeasurementCompactSchema().load_list_safe(FlightMeasurementCompact, parsed_data)
+
+    measured_parts = flight.measured_parts
+
+    # In case the end of the flight is coming near extend it
+    if flight.end is not None and (flight.end - datetime.now(timezone.utc)) < FLIGHT_MINIMUM_HEAD_TIME:
+        flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
+        flight.end = flight.end.replace(tzinfo=timezone.utc)
+        await create_or_update_flight(flight)
+
+    measurements_to_save = list[FlightMeasurement]()
+
+    for part in parsed:
+
+        part_id_as_str = str(part.part_id)
+        
+        if part_id_as_str not in measured_parts:
+            return f'A measurement for part {part.part_id} cannot be stored, because the part was previously not specified to be measured in the flight', 400
+
+        measurement_schema = getConcreteMeasurementSchema(measured_parts[part_id_as_str])()
+
+
+        for timestamp, measurement in part.measurements:
+
+            inflated_measurements = dict[str, Union[str, int, float]]()
+            i = 0
+            for m in measurement:
+                if m is not None:
+                    inflated_measurements[part.field_names[i]] = m
+                i += 1
+
+            measurement_object = FlightMeasurement(datetime.fromtimestamp(timestamp), inflated_measurements, uuid.uuid4(), part.part_id)
+
+            # Verify datatypes
+            measurement_schema.validate(measurement_schema.dump(measurement_object))
+
+            measurements_to_save.append(measurement_object)
+
+    await insert_flight_data(measurements_to_save, flight_id)
+
+    return jsonify({'success': True})
+
 
 @flight_data_controller.route("/get_aggregated_range/<flight_id>/<vessel_part>/<resolution>/<start>/<end>", methods = ['GET'])
 @auth_required
