@@ -7,7 +7,8 @@ from pymongo import ASCENDING, DESCENDING
 
 from models.flight_measurement import FlightMeasurement, FlightMeasurementAggregatedSchema, FlightMeasurementDescriptor, FlightMeasurementSchema, FlightMeasurementDescriptorSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema
 from services.data_access.common.collection_managment import get_or_init_collection
-
+from quart import current_app
+from time import time
 
 #region Constants
 
@@ -120,6 +121,8 @@ async def get_or_init_flight_data_collection() -> AgnosticCollection:
 # Inserts new measured flight data
 async def insert_flight_data(measurements: list[FlightMeasurement], flight_id: str, vessel_part: Union[str, None] = None):
 
+    insert_start_time = time()
+
     collection = await get_or_init_flight_data_collection()
 
     # Convert into a datetime object, because mongodb
@@ -131,7 +134,15 @@ async def insert_flight_data(measurements: list[FlightMeasurement], flight_id: s
         m['metadata'] = {'_flight_id': flight_id, 'part_id': m['part_id']}
         del m['part_id']
 
+    write_start_time = time()
+
     res = await collection.insert_many(measurements_raw) # type: ignore
+
+    after_write_time = time()
+    preparation_time = write_start_time - insert_start_time
+    db_time = after_write_time - write_start_time
+
+    current_app.logger.debug(f'Pushed {len(measurements)} measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
 
     s = cast(NamedSignal, signal(NEW_FLIGHT_DATA))
 

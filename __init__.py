@@ -2,6 +2,7 @@ from quart import Quart
 from quart_cors import cors
 from controller.socketio.connection_controller import init_connection_controller
 from controller.socketio.init import init_socket_io_controller
+from middleware.logging.request_logging import use_request_logging
 from services.data_access.init import init_data_access
 from services.data_access.mongodb.mongodb_connection import init_app
 from controller.vessel_controller import vessel_api
@@ -39,6 +40,8 @@ def create_app(debug=False):
     # CORS(vessel_api)
     # CORS(flight_controller)
     # CORS(flight_data_controller)
+
+    use_request_logging(app)
 
     init_app(app)
 

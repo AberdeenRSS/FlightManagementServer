@@ -268,7 +268,6 @@ async def report_flight_data_compact(flight_id: str):
 
         measurement_schema = getConcreteMeasurementSchema(measured_parts[part_id_as_str])()
 
-
         for timestamp, measurement in part.measurements:
 
             inflated_measurements = dict[str, Union[str, int, float]]()
