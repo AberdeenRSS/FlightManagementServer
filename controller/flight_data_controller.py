@@ -11,12 +11,14 @@ from itertools import groupby
 
 from models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME, FlightSchema
 from models.command import CommandSchema
-from models.flight_measurement_compact import FlightMeasurementCompact, FlightMeasurementCompactSchema
+from models.flight_measurement_compact import FlightMeasurementCompact, FlightMeasurementCompactDB, FlightMeasurementCompactDBSchema, FlightMeasurementCompactSchema, to_compact_db
 
 from services.auth.jwt_user_info import User, get_user_info
 from services.data_access.command import get_commands_in_range
 from services.data_access.flight import get_flight, create_or_update_flight
 from services.data_access.flight_data import insert_flight_data, get_flight_data_in_range, get_aggregated_flight_data, resolutions
+from services.data_access.flight_data_compact import insert_flight_data as insert_flight_data_compact, get_aggregated_flight_data as get_aggregated_flight_data_compact
+
 
 flight_data_controller = Blueprint('flight_data', __name__, url_prefix='/flight_data')
 
@@ -257,7 +259,7 @@ async def report_flight_data_compact(flight_id: str):
         flight.end = flight.end.replace(tzinfo=timezone.utc)
         await create_or_update_flight(flight)
 
-    measurements_to_save = list[FlightMeasurement]()
+    db_measurements = list[FlightMeasurementCompactDB]()
 
     for part in parsed:
 
@@ -266,25 +268,9 @@ async def report_flight_data_compact(flight_id: str):
         if part_id_as_str not in measured_parts:
             return f'A measurement for part {part.part_id} cannot be stored, because the part was previously not specified to be measured in the flight', 400
 
-        measurement_schema = getConcreteMeasurementSchema(measured_parts[part_id_as_str])()
-
-        for timestamp, measurement in part.measurements:
-
-            inflated_measurements = dict[str, Union[str, int, float]]()
-            i = 0
-            for m in measurement:
-                if m is not None:
-                    inflated_measurements[part.field_names[i]] = m
-                i += 1
-
-            measurement_object = FlightMeasurement(datetime.fromtimestamp(timestamp), inflated_measurements, uuid.uuid4(), part.part_id)
-
-            # Verify datatypes
-            measurement_schema.validate(measurement_schema.dump(measurement_object))
-
-            measurements_to_save.append(measurement_object)
-
-    await insert_flight_data(measurements_to_save, flight_id)
+        db_measurements.append(to_compact_db(part))
+       
+    await insert_flight_data_compact(db_measurements, flight_id)
 
     return jsonify({'success': True})
 
@@ -349,9 +335,9 @@ async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, star
     
     measurement_schema = measured_parts[vessel_part]
     
-    values = await get_aggregated_flight_data(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end), resolution, measurement_schema) # type: ignore
+    values = await get_aggregated_flight_data_compact(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end), resolution, measurement_schema) # type: ignore
 
-    return FlightMeasurementAggregatedSchema(many=True).dumps(values)
+    return FlightMeasurementCompactDBSchema(many=True).dumps(values)
 
 @flight_data_controller.route("/get_range/<flight_id>/<vessel_part>/<start>/<end>", methods = ['GET'])
 @auth_required

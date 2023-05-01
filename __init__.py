@@ -24,7 +24,7 @@ def create_app(debug=False):
     if debug:
         app.logger.setLevel('DEBUG')
     else:
-        app.logger.setLevel('INFO')
+        app.logger.setLevel('DEBUG')
 
 
     # Set default config (should come from env later)

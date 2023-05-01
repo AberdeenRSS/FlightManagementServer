@@ -6,7 +6,8 @@ from quart import current_app
 
 from middleware.auth.requireAuth import socket_authenticated_only
 from models.flight_measurement import FlightMeasurementSchema
-from services.data_access.flight_data import flight_data_signal, NEW_FLIGHT_DATA
+from models.flight_measurement_compact import FlightMeasurementCompactDB, FlightMeasurementCompactDBSchema
+from services.data_access.flight_data_compact import NEW_FLIGHT_DATA_COMPACT
 from blinker import NamedSignal, signal
 
 new_flight_data_event = 'flight_data.new'
@@ -19,11 +20,10 @@ def get_on_new_flight_data(sio: Server):
     def on_new_flight_data(sender, **kw):
 
         flight_id       = kw['flight_id']
-        vessel_part     = kw['vessel_part']
         measurements    = kw['measurements']
 
         msg = {
-            'measurements': FlightMeasurementSchema().dump_list(measurements),
+            'measurements': FlightMeasurementCompactDBSchema().dump_list(measurements),
             'flight_id': flight_id
         }
 
@@ -37,7 +37,7 @@ def get_on_new_flight_data(sio: Server):
 
 def init_flight_data_controller(sio: Server):
 
-    s = cast(NamedSignal, signal(NEW_FLIGHT_DATA))
+    s = cast(NamedSignal, signal(NEW_FLIGHT_DATA_COMPACT))
 
     # Connect the data access signal to emit flight data events
     s.connect(get_on_new_flight_data(sio), weak=False)
