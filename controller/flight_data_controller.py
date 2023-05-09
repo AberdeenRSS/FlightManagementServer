@@ -1,6 +1,8 @@
 
 import asyncio
 from datetime import datetime, timezone
+import math
+import time
 from typing import Iterable, Tuple, Union, cast
 import uuid
 from quart import Blueprint
@@ -235,8 +237,12 @@ async def report_flight_data_compact(flight_id: str):
         description: The user reporting the data was not the vessel
     """
 
+    start_time =  time.time()
+
     user_info = cast(User, get_user_info())
     flight = await get_flight(flight_id)
+
+    after_flight_time = time.time()
 
     if flight is None:
         return f'Flight {flight_id}', 400
@@ -249,7 +255,9 @@ async def report_flight_data_compact(flight_id: str):
     if parsed_data is None or not isinstance(parsed_data, Iterable):
         return 'Invalid json (not an array)', 400
     
-    parsed = FlightMeasurementCompactSchema().load_list_safe(FlightMeasurementCompact, parsed_data)
+    # parsed = FlightMeasurementCompactSchema().load_list_safe(FlightMeasurementCompact, parsed_data)
+
+    after_parse_time = time.time()
 
     measured_parts = flight.measured_parts
 
@@ -261,16 +269,22 @@ async def report_flight_data_compact(flight_id: str):
 
     db_measurements = list[FlightMeasurementCompactDB]()
 
-    for part in parsed:
+    for part in parsed_data:
 
-        part_id_as_str = str(part.part_id)
+        part_id_as_str = str(part['part_id'])
         
         if part_id_as_str not in measured_parts:
-            return f'A measurement for part {part.part_id} cannot be stored, because the part was previously not specified to be measured in the flight', 400
+            return f'A measurement for part {part["part_id"]} cannot be stored, because the part was previously not specified to be measured in the flight', 400
 
         db_measurements.append(to_compact_db(part))
+
+    after_to_compact_time = time.time()
        
     await insert_flight_data_compact(db_measurements, flight_id)
+
+    after_db_time = time.time()
+
+    current_app.logger.info(f'Took {math.ceil((after_db_time-start_time)*1000)}ms in total: {math.ceil((after_flight_time-start_time)*1000)}ms loading flight; {math.ceil((after_parse_time-after_flight_time)*1000)}ms parsing; {math.ceil((after_to_compact_time-after_parse_time)*1000)}ms prepare; {math.ceil((after_db_time-after_to_compact_time)*1000)}ms db')
 
     return jsonify({'success': True})
 
@@ -316,15 +330,14 @@ async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, star
     """
 
     if resolution not in resolutions:
-        flash(f'{resolution} is not supported')
+        return f'{resolution} is not supported', 400
 
     series_identifier = FlightMeasurementSeriesIdentifier(_flight_id = uuid.UUID(flight_id), _vessel_part_id= uuid.UUID(vessel_part))
 
     flight = await get_flight(flight_id)
 
     if not flight:
-        flash('Flight does not exist')
-        return ''
+        return 'Flight does not exist', 404
 
     measured_parts = cast(dict, flight.measured_parts)
 
@@ -382,8 +395,7 @@ async def getRange(flight_id: str, vessel_part: str, start: str, end: str):
     flight = await get_flight(flight_id)
 
     if not flight:
-        flash('Flight does not exist')
-        return ''
+        return 'Flight does not exist', 404
 
     measured_parts = cast(dict, flight.measured_parts)
 

@@ -49,25 +49,25 @@ class FlightMeasurementCompactDBSchema(make_safe_schema(FlightMeasurementCompact
 
     part_id = fields.UUID(allow_none=True)
 
-    measurements = fields.List(fields.Tuple((fields.Float, fields.List(fields.Raw(allow_none=True)))))
+    measurements = fields.Raw()
 
     measurements_aggregated = fields.Dict(fields.Str, fields.Tuple([fields.Raw(allow_none=True), fields.Raw(allow_none=True), fields.Raw(allow_none=True)]))
 
-def to_compact_db(compact_measurement: FlightMeasurementCompact):
+def to_compact_db(compact_measurement: dict):
 
     avg_count = dict()
     avg_values = dict()
     min = dict()
     max = dict()
 
-    for name in compact_measurement.field_names:
+    for name in compact_measurement['field_names']:
 
         avg_count[name] = 0
         avg_values[name] = 0
         min[name] = None
         max[name] = 0
 
-    for timestamp, mm in compact_measurement.measurements:
+    for timestamp, mm in compact_measurement['measurements']:
 
         i = 0 
         for m in mm:
@@ -76,7 +76,7 @@ def to_compact_db(compact_measurement: FlightMeasurementCompact):
                 i += 1
                 continue
 
-            field_name = compact_measurement.field_names[i]
+            field_name = compact_measurement['field_names'][i]
 
             avg_values[field_name] += m
             avg_count[field_name] += 1
@@ -97,12 +97,12 @@ def to_compact_db(compact_measurement: FlightMeasurementCompact):
 
         agg[key] = (avg, min[key], max[key])
 
-    first_timestamp = datetime.datetime.fromtimestamp(compact_measurement.measurements[0][0], tz=datetime.timezone.utc)
-    last_timestamp = datetime.datetime.fromtimestamp(compact_measurement.measurements[-1][0], tz=datetime.timezone.utc)
+    first_timestamp = datetime.datetime.fromtimestamp(compact_measurement['measurements'][0][0], tz=datetime.timezone.utc)
+    last_timestamp = datetime.datetime.fromtimestamp(compact_measurement['measurements'][-1][0], tz=datetime.timezone.utc)
 
     return FlightMeasurementCompactDB(
         _start_time = first_timestamp,
         _end_time = last_timestamp,
-        part_id=compact_measurement.part_id,
-        measurements=compact_measurement.measurements,
+        part_id=compact_measurement['part_id'],
+        measurements=compact_measurement['measurements'],
         measurements_aggregated=agg)

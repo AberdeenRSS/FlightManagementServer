@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from typing import cast
 from quart import Blueprint
 from quart import request, flash, g, jsonify
@@ -10,7 +11,7 @@ from jsonschema import validate, ValidationError
 from models.command import CommandSchema, Command
 from models.flight import FLIGHT_MINIMUM_HEAD_TIME, FLIGHT_DEFAULT_HEAD_TIME
 from services.auth.jwt_user_info import User, get_user_info
-from services.data_access.command import get_commands_in_range, insert_commands, update_command
+from services.data_access.command import get_commands_in_range, insert_commands, insert_or_update_commands
 from services.data_access.flight import get_flight, create_or_update_flight
 from services.data_access.vessel import get_vessel
 
@@ -105,11 +106,11 @@ async def dispatch_commands(flight_id: str):
             return f'Invalid payload for {command._id} (type: {command._command_type})', 400
         
     # In case the end of the flight is coming near extend it
-    if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
+    if flight.end is not None and (flight.end - datetime.now(timezone.utc)) < FLIGHT_MINIMUM_HEAD_TIME:
         flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
         await create_or_update_flight(flight)
 
-    await insert_commands(commands, flight_id)
+    await insert_commands(commands, flight_id, True)
 
     return '', 200
 
@@ -118,7 +119,7 @@ async def dispatch_commands(flight_id: str):
 async def confirm_command(flight_id: str):
     """
     To be called by the vessel to confirm the the receipt or the
-    processing of the command
+    processing of the command or that the vessel directly created a command
     ---
     parameters:
       - name: flight_id
@@ -130,7 +131,9 @@ async def confirm_command(flight_id: str):
         required: true
         in: body
         schema:
-            $ref: "#/definitions/Command"
+            type: array
+            items:
+                $ref: "#/definitions/Command"
         description: The updated command
     responses:
         200:
@@ -147,59 +150,59 @@ async def confirm_command(flight_id: str):
 
     parsed_command = await request.get_json()
 
-    command = CommandSchema().load_safe(Command, parsed_command)
+    commands = CommandSchema().load_list_safe(Command, json.loads(parsed_command))
 
     user_info = cast(User, get_user_info())
-
-    try:
-        assert command.state != 'new'
-        assert command.create_time
-    except AssertionError:
-        return f'Command {command._id} has wrong format', 400
 
     flight = await get_flight(flight_id)
 
     if flight is None:
         return 'Unknown flight', 404
 
-    if str(command._command_type) not in flight.available_commands:
-        return f'Command {command._command_type} does not exist', 400
-    
-    command_description = flight.available_commands[command._command_type]
-
-    if not command_description.supported_on_vehicle_level and command._part_id is None:
-        return f'Command type {command._command_type} is not supported on vehicle level'
-
-    if command._part_id is not None and command._part_id not in command_description.supporting_parts:
-        return f'Command type {command._command_type} not available for part {command._part_id}', 400
-    
-    if command.command_payload is not None and command_description.payload_schema is None:
-        return f'Command {command._command_type} does not support a payload', 400
-
-    if command_description.payload_schema is not None:
-
+    for command in commands:
         try:
-            validate(command.command_payload, command_description.payload_schema)
-        except ValidationError:
-            return f'Invalid payload for {command._id} (type: {command._command_type})', 400
-        
-    if command.response is not None and command_description.response_schema is None:
-        return f'Command {command._command_type} does not support a response', 400
+            assert command.state != 'new'
+            assert command.create_time
+        except AssertionError:
+            return f'Command {command._id} has wrong format', 400
 
-    if command_description.response_schema is not None and command.command_payload is not None:
-
-        try:
-            validate(command.response, command_description.response_schema)
-        except ValidationError:
-            return f'Invalid response for {command._id} (type: {command._command_type})', 400
+        if str(command._command_type) not in flight.available_commands:
+            return f'Command {command._command_type} does not exist', 400
         
-    
+        command_description = flight.available_commands[command._command_type]
+
+        if not command_description.supported_on_vehicle_level and command._part_id is None:
+            return f'Command type {command._command_type} is not supported on vehicle level'
+
+        if command._part_id is not None and command._part_id not in command_description.supporting_parts:
+            return f'Command type {command._command_type} not available for part {command._part_id}', 400
+        
+        if command.command_payload is not None and command_description.payload_schema is None:
+            return f'Command {command._command_type} does not support a payload', 400
+
+        if command_description.payload_schema is not None:
+
+            try:
+                validate(command.command_payload, command_description.payload_schema)
+            except ValidationError:
+                return f'Invalid payload for {command._id} (type: {command._command_type})', 400
+            
+        if command.response is not None and command_description.response_schema is None:
+            return f'Command {command._command_type} does not support a response', 400
+
+        if command_description.response_schema is not None and command.command_payload is not None:
+
+            try:
+                validate(command.response, command_description.response_schema)
+            except ValidationError:
+                return f'Invalid response for {command._id} (type: {command._command_type})', 400
+            
     # In case the end of the flight is coming near extend it
-    if flight.end is not None and (flight.end - datetime.utcnow()) < FLIGHT_MINIMUM_HEAD_TIME:
+    if flight.end is not None and (flight.end - datetime.now(timezone.utc)) < FLIGHT_MINIMUM_HEAD_TIME:
         flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
         await create_or_update_flight(flight)
 
-    await update_command(command, flight_id)
+    await insert_or_update_commands(commands, flight_id, False)
 
     return '', 200
 

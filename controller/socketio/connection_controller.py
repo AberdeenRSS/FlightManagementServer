@@ -9,7 +9,6 @@ def init_connection_controller(sio: Server):
     @sio.event
     def connect(sid, environ, auth):
 
-
         error_msg = try_authenticate_socket(sid, auth)
 
         if error_msg != None:

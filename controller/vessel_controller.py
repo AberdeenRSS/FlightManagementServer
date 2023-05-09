@@ -2,7 +2,7 @@ from typing import cast
 from uuid import UUID, uuid4
 from quart import Blueprint
 from quart import request, flash, g, jsonify
-from middleware.auth.requireAuth import auth_required
+from middleware.auth.requireAuth import auth_required, role_required
 
 from models.vessel import VesselSchema, Vessel
 from services.auth.jwt_user_info import User, get_user_info
@@ -15,6 +15,7 @@ vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
 # Method for a vessel to register
 @vessel_api.route("/register", methods = ['POST'])
 @auth_required
+@role_required('Access.Vessel')
 async def registerVessel():
     """
     Method to be called by a vessel to register itself. 

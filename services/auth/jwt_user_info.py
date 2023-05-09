@@ -1,18 +1,17 @@
 from typing import Any, Union
 from quart import g, request
 
-socket_users = dict()
-
 class User:
     # A unique id of the user
     unique_id: str
 
-    user_type: str = 'human'
+    roles: list[str]
 
     name: Union[str, None]
 
     token: dict[str, Any]
 
+socket_users = dict[str, User]()
     
 def set_user_info(raw_token: dict[str, Any], sid: Union[str, None] = None):
 
@@ -21,6 +20,7 @@ def set_user_info(raw_token: dict[str, Any], sid: Union[str, None] = None):
     user = User()
     user.unique_id = raw_token['sub']
     user.token = raw_token
+    user.roles = raw_token.get('roles') or list()
 
     if sid is not None:  # type: ignore
         socket_users[sid] = user # type: ignore
@@ -31,6 +31,8 @@ def get_user_info(sid: Union[str,None]=None) -> Union[User, None]:
     """
     Retrieves the user information from the global context if available
     """
+
+    global socket_users
 
     if sid is not None:
         if sid in socket_users:

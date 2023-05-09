@@ -86,14 +86,17 @@ def get_aggregated_result_projection(schemas: list[FlightMeasurementDescriptor])
 
     for schema in schemas:
 
-        res_field_avg = f'{schema.name}_avg'
-        res_field_min = f'{schema.name}_min'
-        res_field_max = f'{schema.name}_max'
+        res_field_avg = f'${schema.name}_avg'
+        res_field_min = f'${schema.name}_min'
+        res_field_max = f'${schema.name}_max'
 
         res[schema.name] = [
-            {'$getField': res_field_avg},
-            {'$getField': res_field_min},
-            {'$getField': res_field_max}
+            res_field_avg,
+            res_field_min,
+            res_field_max
+            # {'$getField': res_field_avg},
+            # {'$getField': res_field_min},
+            # {'$getField': res_field_max}
         ]
 
     return res

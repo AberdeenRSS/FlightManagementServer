@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Union
+from typing import TypeVar, Union
 from quart import request, flash, current_app, session
 from flask_socketio import disconnect
 
@@ -35,6 +35,7 @@ def try_authenticate_socket(sid: str, auth: Union[dict[str, str], None] = None) 
     if auth is None:
         return 'Authentication handshake did not happen yet'
 
+    # Try to get the token out of the auth dict
     token = None
 
     if 'token' in auth:
@@ -84,3 +85,42 @@ def socket_authenticated_only(f):
         else:
             return f(*args, **kwargs)
     return wrapped
+
+
+def role_required(role: str):
+    def d(f):
+        @wraps(f)
+        async def decorator(*args, **kwargs):
+
+            user = get_user_info()
+
+            if user is None:
+                return  401
+            
+            if role not in user.roles:
+                return 403
+            
+            return await f(*args, **kwargs)
+        return decorator
+    return d
+    
+def role_required_socket(role: str):
+
+    def d(f):
+        @wraps(f)
+        async def decorator(*args, **kwargs):
+
+            sid: str = args[0] # get the socket id of the client (always the first parameter of the wrapped method)
+
+            user = get_user_info(sid)
+
+            if user is None:
+                return 401
+            
+            if role not in user.roles:
+                return 403
+            
+            return await f(*args, **kwargs)
+        return decorator
+
+    return d

@@ -1,7 +1,7 @@
 from typing import cast
 from quart import Blueprint
 from quart import request, flash, g, jsonify
-from middleware.auth.requireAuth import auth_required
+from middleware.auth.requireAuth import auth_required, role_required
 from uuid import uuid4
 from datetime import datetime, timedelta
 
@@ -18,6 +18,7 @@ flight_controller = Blueprint('flight', __name__, url_prefix='/flight')
 # Method for a vessel to register
 @flight_controller.route("/create", methods = ['POST'])
 @auth_required
+@role_required('Access.Vessel')
 async def create_flight():
     """
     Creates a flight
