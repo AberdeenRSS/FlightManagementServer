@@ -22,26 +22,31 @@ def get_command_room_vessel(flight_id: str):
 def make_on_new_command(sio: Server):
 
     def on_new_command(sender, **kw):
+        
+        try:
 
-        flight_id = kw['flight_id']
-        commands = kw['commands']
-        from_client = kw['from_client']
+            flight_id = kw['flight_id']
+            commands = kw['commands']
+            from_client = kw['from_client']
 
-        msg = {
-            'commands': CommandSchema(many=True).dump_list(commands),
-            'flight_id': flight_id
-        }
+            msg = {
+                'commands': CommandSchema(many=True).dump_list(commands),
+                'flight_id': flight_id
+            }
 
-        coroutine = sio.emit(new_command_event, msg, to=get_command_room_clients(flight_id))
-
-
-        if from_client:
-            coroutine_vessels = sio.emit(new_command_event, msg, to=get_command_room_vessel(flight_id))
-            asyncio.get_event_loop().create_task(cast(Coroutine, coroutine_vessels))
+            coroutine = sio.emit(new_command_event, msg, to=get_command_room_clients(flight_id))
 
 
-        asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
+            if from_client:
+                coroutine_vessels = sio.emit(new_command_event, msg, to=get_command_room_vessel(flight_id))
+                asyncio.get_event_loop().create_task(cast(Coroutine, coroutine_vessels))
 
+
+            asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
+
+        except Exception as e:
+
+            current_app.logger.error(f'Error sending command {e}')
 
 
     return on_new_command
@@ -50,21 +55,26 @@ def make_on_update_command(sio: Server):
 
     def on_update_command(sender, **kw):
 
-        flight_id = kw['flight_id']
-        commands = kw['commands']
-        from_client = kw['from_client']
+        try:
 
-        msg = {
-            'commands': CommandSchema().dump_list(commands),
-            'flight_id': flight_id
-        }
+            flight_id = kw['flight_id']
+            commands = kw['commands']
+            from_client = kw['from_client']
 
-        if from_client:
-            coroutine = sio.emit(update_command_event, msg, to=get_command_room_vessel(flight_id))
-        else:
-            coroutine = sio.emit(update_command_event, msg, to=get_command_room_clients(flight_id))
+            msg = {
+                'commands': CommandSchema().dump_list(commands),
+                'flight_id': flight_id
+            }
 
-        asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
+            if from_client:
+                coroutine = sio.emit(update_command_event, msg, to=get_command_room_vessel(flight_id))
+            else:
+                coroutine = sio.emit(update_command_event, msg, to=get_command_room_clients(flight_id))
+
+            asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
+        except Exception as e:
+
+            current_app.logger.error(f'Error sending command: {e}')
 
     return on_update_command
 

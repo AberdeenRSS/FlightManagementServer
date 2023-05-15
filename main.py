@@ -20,10 +20,10 @@ def make_app():
     print(f'Starting server in {"Debug" if debug else "Production"} mode...')
 
     config = Config()
-    config.bind = ["0.0.0.0:5000" if dockerized else "localhost:5000"] 
+    config.bind = ["0.0.0.0:5000" if dockerized else "0.0.0.0:5000"] 
     # config.bind = ['0.0.0.0:5000', 'localhost:5000']
     config.debug = debug
-    config.graceful_timeout 
+    config.workers = 10 
 
     flask_app, socket_io_server = create_app(debug)
 

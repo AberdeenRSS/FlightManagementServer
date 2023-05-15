@@ -19,17 +19,26 @@ def get_on_new_flight_data(sio: Server):
 
     def on_new_flight_data(sender, **kw):
 
-        flight_id       = kw['flight_id']
-        measurements    = kw['measurements']
+        try:
 
-        msg = {
-            'measurements': FlightMeasurementCompactDBSchema().dump_list(measurements),
-            'flight_id': flight_id
-        }
+            flight_id       = kw['flight_id']
+            measurements    = kw['measurements']
 
-        coroutine = sio.emit(new_flight_data_event, msg, to=get_flight_data_room(flight_id))
+            # Delete most granular data to save bandwidth
+            for m in measurements:
+                del m.measurements
 
-        asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
+            msg = {
+                'measurements': FlightMeasurementCompactDBSchema().dump_list(measurements),
+                'flight_id': flight_id
+            }
+
+            coroutine = sio.emit(new_flight_data_event, msg, to=get_flight_data_room(flight_id))
+
+            asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
+        except Exception as e:
+
+            current_app.logger.error(f'Error sending realtime flight data: {e}')
 
         return
 
