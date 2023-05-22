@@ -68,7 +68,7 @@ async def dispatch_commands(flight_id: str):
         try:
             assert command.state == 'new'
             assert command.create_time
-            assert cast(datetime, command.create_time.replace(tzinfo=timezone.utc)) < datetime.utcnow().replace(tzinfo=timezone.utc)
+            # assert cast(datetime, command.create_time.replace(tzinfo=timezone.utc)) < datetime.utcnow().replace(tzinfo=timezone.utc)
             assert command.dispatch_time == None
             assert command.receive_time == None
             assert command.complete_time == None
