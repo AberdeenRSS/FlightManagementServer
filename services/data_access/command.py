@@ -47,8 +47,10 @@ def from_db_object(command: dict):
     if 'create_time' in command:
         command['create_time'] = cast(datetime, command['create_time']).isoformat()
     
-    command['_part_id'] = command['metadata']['_part_id']
+    command['_part_id'] = command['metadata']['part_id']
     command['_command_type'] = command['metadata']['command_type']
+
+    del command['metadata']
 
 def to_db_object(flight_id: str, command_raw: dict):
     command_raw['create_time'] = datetime.fromisoformat(command_raw['create_time'])
@@ -118,7 +120,7 @@ async def get_commands_in_range(flight_id: str, start: datetime, end: datetime, 
     # Get all measurements in the date range
     res = await collection.find(query).to_list(1000) # type: ignore
 
-    from_db_object(res)
+    logic_objects = [from_db_object(r) for r in res]
 
     return CommandSchema().load_list_safe(Command, res)
 
