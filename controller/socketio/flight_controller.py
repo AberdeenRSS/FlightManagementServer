@@ -1,4 +1,5 @@
 import asyncio
+from logging import Logger
 from typing import Coroutine, cast
 from quart import current_app
 from socketio import Server
@@ -37,7 +38,7 @@ def make_on_update_command(sio: Server):
 
     return on_update_command
 
-def init_flight_controller(sio: Server):
+def init_flight_controller(sio: Server, logger: Logger):
 
     new_signal = get_flight_new_signal()
     update_signal = get_flight_update_signal()

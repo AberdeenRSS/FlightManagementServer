@@ -1,4 +1,5 @@
 import asyncio
+from logging import Logger
 from typing import Coroutine, cast
 from socketio import Server
 from quart import current_app
@@ -66,10 +67,8 @@ def make_on_update_command(sio: Server):
                 'flight_id': flight_id
             }
 
-            if from_client:
-                coroutine = sio.emit(update_command_event, msg, to=get_command_room_vessel(flight_id))
-            else:
-                coroutine = sio.emit(update_command_event, msg, to=get_command_room_clients(flight_id))
+            room = get_command_room_vessel(flight_id) if from_client else get_command_room_clients(flight_id)
+            coroutine = sio.emit(update_command_event, msg, to=room)
 
             asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
         except Exception as e:
@@ -78,7 +77,7 @@ def make_on_update_command(sio: Server):
 
     return on_update_command
 
-def init_command_controller(sio: Server):
+def init_command_controller(sio: Server, logger: Logger):
 
     new_signal = get_commands_new_signal()
     update_signal = get_command_update_signal()
@@ -97,9 +96,9 @@ def init_command_controller(sio: Server):
         if user is None:
             return
         
-        if 'Access.Vessel' in user.roles:
-            sio.enter_room(sid, get_command_room_vessel(flight_id))
-        else:
-            sio.enter_room(sid, get_command_room_clients(flight_id))
+        room = get_command_room_vessel(flight_id) if 'Access.Vessel' in user.roles else get_command_room_clients(flight_id)
+
+        sio.enter_room(sid, room)
+
             
         

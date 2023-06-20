@@ -1,4 +1,5 @@
 import asyncio
+from logging import Logger
 from typing import Coroutine, cast
 from socketio import Server
 
@@ -44,7 +45,7 @@ def get_on_new_flight_data(sio: Server):
 
     return on_new_flight_data
 
-def init_flight_data_controller(sio: Server):
+def init_flight_data_controller(sio: Server, logger: Logger):
 
     s = cast(NamedSignal, signal(NEW_FLIGHT_DATA_COMPACT))
 

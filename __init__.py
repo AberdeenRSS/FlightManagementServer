@@ -56,9 +56,10 @@ def create_app(debug=False):
 
     socketio_server = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 
-    init_socket_io_controller(socketio_server)
+    init_socket_io_controller(socketio_server, app.logger)
 
     # init_swagger(app)
+
 
     app.logger.info('Started server')
 

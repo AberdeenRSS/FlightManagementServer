@@ -67,13 +67,13 @@ async def dispatch_commands(flight_id: str):
     for command in commands:
         try:
             assert command.state == 'new'
-            assert command.create_time
-            # assert cast(datetime, command.create_time.replace(tzinfo=timezone.utc)) < datetime.utcnow().replace(tzinfo=timezone.utc)
-            assert command.dispatch_time == None
-            assert command.receive_time == None
-            assert command.complete_time == None
-        except AssertionError:
-            return f'Command {command._id} has wrong format', 400
+            assert command.create_time is not None
+            assert cast(datetime, command.create_time.replace(tzinfo=timezone.utc)) < datetime.utcnow().replace(tzinfo=timezone.utc)
+            assert command.dispatch_time is None
+            assert command.receive_time is None
+            assert command.complete_time is None
+        except AssertionError as e:
+            return f'Command {command._id} has wrong format: {e}', 400
 
     flight = await get_flight(flight_id)
 
