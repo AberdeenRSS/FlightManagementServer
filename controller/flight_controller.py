@@ -56,8 +56,8 @@ async def create_flight():
     if vessel is None:
         return f'Vessel {flight._vessel_id} does not exist yet. Please create the vessel before creating a flight for it', 400
         
-    if str(vessel._id) != user_info.unique_id:
-        return f'Vessel does not belong to current user. Only the vessel itself can create a flight', 401
+    # if str(vessel._id) != user_info.unique_id:
+    #     return f'Vessel does not belong to current user. Only the vessel itself can create a flight', 401
 
     # Assign the correct version
     flight._vessel_version = vessel._version
