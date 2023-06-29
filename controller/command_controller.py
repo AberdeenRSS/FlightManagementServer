@@ -65,10 +65,12 @@ async def dispatch_commands(flight_id: str):
     user_info = cast(User, get_user_info())
 
     for command in commands:
+
+        command.create_time = cast(datetime, command.create_time.replace(tzinfo=timezone.utc))
+
         try:
             assert command.state == 'new'
             assert command.create_time is not None
-            assert cast(datetime, command.create_time.replace(tzinfo=timezone.utc)) < datetime.utcnow().replace(tzinfo=timezone.utc)
             assert command.dispatch_time is None
             assert command.receive_time is None
             assert command.complete_time is None
