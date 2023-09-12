@@ -86,17 +86,31 @@ def init_command_controller(sio: Server, logger: Logger):
     new_signal.connect(make_on_new_command(sio), weak=False)
     update_signal.connect(make_on_update_command(sio), weak=False)
 
-    @sio.on('command.subscribe')
+    @sio.on('command.subscribe_as_client')
     @socket_authenticated_only
-    def subscribe(sid, flight_id):
+    def subscribe_as_client(sid, flight_id):
         """ Join a room to receive all commands send for a specific flight"""
 
-        user = get_user_info(sid)
+        # user = get_user_info(sid)
 
-        if user is None:
-            return
+        # if user is None:
+        #     return
         
-        room = get_command_room_vessel(flight_id) if 'Access.Vessel' in user.roles else get_command_room_clients(flight_id)
+        room = get_command_room_clients(flight_id)
+
+        sio.enter_room(sid, room)
+
+    @sio.on('command.subscribe_as_vessel')
+    @socket_authenticated_only
+    def subscribe_as_vessel(sid, flight_id):
+        """ Join a room to receive all commands send for a specific flight"""
+
+        # user = get_user_info(sid)
+
+        # if user is None:
+        #     return
+        
+        room = get_command_room_vessel(flight_id)
 
         sio.enter_room(sid, room)
 

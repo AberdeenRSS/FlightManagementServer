@@ -62,8 +62,6 @@ async def dispatch_commands(flight_id: str):
     if len(commands) < 1:
         return f'Empty list', 400
 
-    user_info = cast(User, get_user_info())
-
     for command in commands:
 
         command.create_time = cast(datetime, command.create_time.replace(tzinfo=timezone.utc))
@@ -153,8 +151,6 @@ async def confirm_command(flight_id: str):
     parsed_command = await request.get_json()
 
     commands = CommandSchema().load_list_safe(Command, json.loads(parsed_command))
-
-    user_info = cast(User, get_user_info())
 
     flight = await get_flight(flight_id)
 

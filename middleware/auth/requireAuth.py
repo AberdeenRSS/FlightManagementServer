@@ -64,6 +64,8 @@ def auth_required(f):
     @wraps(f)
     async def decorator(*args, **kwargs):
 
+        return f(*args, **kwargs)
+
         error_msg = try_authenticate_http()
         if error_msg:
             return error_msg, 401
@@ -74,6 +76,8 @@ def auth_required(f):
 def socket_authenticated_only(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
+
+        return f(*args, **kwargs)
 
         sid: str = args[0] # get the socket id of the client (always the first parameter of the wrapped method)
 
@@ -91,6 +95,8 @@ def role_required(role: str):
     def d(f):
         @wraps(f)
         async def decorator(*args, **kwargs):
+            
+            return await f(*args, **kwargs)
 
             user = get_user_info()
 
@@ -109,6 +115,9 @@ def role_required_socket(role: str):
     def d(f):
         @wraps(f)
         async def decorator(*args, **kwargs):
+
+            return await f(*args, **kwargs)
+
 
             sid: str = args[0] # get the socket id of the client (always the first parameter of the wrapped method)
 

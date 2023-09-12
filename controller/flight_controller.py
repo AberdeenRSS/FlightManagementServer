@@ -41,7 +41,6 @@ async def create_flight():
     """
 
     flight = FlightSchema().load_safe(Flight, await request.get_json(), partial=True)
-    user_info = cast(User, get_user_info())
 
     # Create a new random uuid for the flight
     flight._id = uuid4()

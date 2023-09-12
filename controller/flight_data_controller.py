@@ -70,14 +70,14 @@ async def report_flight_data(flight_id: str, vessel_part: str):
         description: The user reporting the data was not the vessel
     """
 
-    user_info = cast(User, get_user_info())
+    # user_info = cast(User, get_user_info())
     flight = await get_flight(flight_id)
 
     if flight is None:
         return f'Flight {flight_id}', 400
 
-    if str(flight._vessel_id) != user_info.unique_id:
-        return f'Only the vessel itself is allowed to report flight data', 401
+    # if str(flight._vessel_id) != user_info.unique_id:
+    #     return f'Only the vessel itself is allowed to report flight data', 401
 
     measured_parts = cast(dict, flight.measured_parts)
 
@@ -145,14 +145,14 @@ async def report_flight_data_combined(flight_id: str):
         description: The user reporting the data was not the vessel
     """
 
-    user_info = cast(User, get_user_info())
+    # user_info = cast(User, get_user_info())
     flight = await get_flight(flight_id)
 
     if flight is None:
         return f'Flight {flight_id}', 400
 
-    if str(flight._vessel_id) != user_info.unique_id:
-        return f'Only the vessel itself is allowed to report flight data', 401
+    # if str(flight._vessel_id) != user_info.unique_id:
+    #     return f'Only the vessel itself is allowed to report flight data', 401
 
     parsed_data = await request.get_json()
 
@@ -239,16 +239,12 @@ async def report_flight_data_compact(flight_id: str):
 
     start_time =  time.time()
 
-    user_info = cast(User, get_user_info())
     flight = await get_flight(flight_id)
 
     after_flight_time = time.time()
 
     if flight is None:
         return f'Flight {flight_id}', 400
-
-    if str(flight._vessel_id) != user_info.unique_id:
-        return f'Only the vessel itself is allowed to report flight data', 401
 
     parsed_data = await request.get_json()
 

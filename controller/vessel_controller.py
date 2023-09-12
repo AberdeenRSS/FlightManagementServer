@@ -41,7 +41,6 @@ async def registerVessel():
 
     raw_vessel = cast(dict, await request.get_json())
 
-    user_info = cast(User, get_user_info())
     # # Use the identity of the vessel as its id -> Only one entry per authentication code
     # raw_vessel['_id'] = UUID(user_info.unique_id)
 

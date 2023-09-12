@@ -10,6 +10,9 @@ def init_connection_controller(sio: Server, logger: Logger):
     @sio.event
     async def connect(sid, environ, auth):
 
+        # Auth currently disabled
+        return
+
         error_msg = try_authenticate_socket(sid, auth)
 
         if error_msg != None:
@@ -19,6 +22,6 @@ def init_connection_controller(sio: Server, logger: Logger):
 
             return False
 
-        user = cast(User, get_user_info(sid))
+        # user = cast(User, get_user_info(sid))
 
-        logger.info(f'Successfully established websocket connection {user.token["email"] if "email" in user.token else "" } ({user.unique_id})')
+        # logger.info(f'Successfully established websocket connection {user.token["email"] if "email" in user.token else "" } ({user.unique_id})')
