@@ -2,6 +2,7 @@ from functools import wraps
 from typing import TypeVar, Union
 from quart import request, flash, current_app, session
 from flask_socketio import disconnect
+import inspect
 
 from services.auth.jwtVerify import try_decode_token
 from services.auth.jwt_user_info import get_user_info, set_user_info
@@ -64,7 +65,11 @@ def auth_required(f):
     @wraps(f)
     async def decorator(*args, **kwargs):
 
-        return await f(*args, **kwargs)
+        res = f(*args, **kwargs)
+
+        if inspect.iscoroutine(res) or inspect.iscoroutinefunction(res):
+            return await res
+        return res
 
         error_msg = try_authenticate_http()
         if error_msg:
@@ -77,8 +82,12 @@ def socket_authenticated_only(f):
     @wraps(f)
     async def wrapped(*args, **kwargs):
 
-        return await f(*args, **kwargs)
+        res = f(*args, **kwargs)
 
+        if inspect.iscoroutine(res) or inspect.iscoroutinefunction(res):
+            return await res
+        return res
+    
         sid: str = args[0] # get the socket id of the client (always the first parameter of the wrapped method)
 
         error = try_authenticate_socket(sid)
@@ -96,8 +105,12 @@ def role_required(role: str):
         @wraps(f)
         async def decorator(*args, **kwargs):
             
-            return await f(*args, **kwargs)
+            res = f(*args, **kwargs)
 
+            if inspect.iscoroutine(res) or inspect.iscoroutinefunction(res):
+                return await res
+            return res
+        
             user = get_user_info()
 
             if user is None:
@@ -116,8 +129,11 @@ def role_required_socket(role: str):
         @wraps(f)
         async def decorator(*args, **kwargs):
 
-            return await f(*args, **kwargs)
+            res = f(*args, **kwargs)
 
+            if inspect.iscoroutine(res) or inspect.iscoroutinefunction(res):
+                return await res
+            return res
 
             sid: str = args[0] # get the socket id of the client (always the first parameter of the wrapped method)
 
