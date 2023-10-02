@@ -58,8 +58,7 @@ def create_app(debug=False):
 
     init_socket_io_controller(socketio_server, app.logger)
 
-    # init_swagger(app)
-
+    init_swagger(app)
 
     app.logger.info('Started server')
 

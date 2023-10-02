@@ -164,16 +164,23 @@ async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIde
     collection = await get_or_init_flight_data_collection()
 
     # Get all measurements in the date range
-    res = await collection.find({'_start_time': { '$gte': start, '$lt': end }, 'metadata._flight_id': {'$eq': series_identifier._flight_id}, 'metadata.part_id': {'$eq': series_identifier._vessel_part_id}  }).to_list(1000)
+    res = await collection.find({'_start_time': { '$gte': start, '$lt': end }, 'metadata._flight_id': {'$eq': str(series_identifier._flight_id)}, 'metadata.part_id': {'$eq': str(series_identifier._vessel_part_id)}  }).to_list(1000)
 
     debsonify_measurements(res)
 
     for m in res:
-        m['flight_id'] = m['metadata']['flight_id']
-        m['part_id'] = m['metadata']['part_id']
+        del m['_id']
+        m['part_id'] = series_identifier._vessel_part_id
+        
+        if isinstance(m['_start_time'], datetime):
+            m['_start_time'] = m['_start_time'].isoformat()
+        if isinstance(m['_end_time'], datetime):
+            m['_end_time'] = m['_end_time'].isoformat()
+
         del m['metadata']
 
-    return FlightMeasurementSchema().load_list_safe(FlightMeasurement, res)
+
+    return FlightMeasurementCompactDBSchema().load_list_safe(FlightMeasurement, res)
 
 async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Literal['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementDescriptor] ):
 

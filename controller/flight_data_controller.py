@@ -18,8 +18,7 @@ from models.flight_measurement_compact import FlightMeasurementCompact, FlightMe
 from services.auth.jwt_user_info import User, get_user_info
 from services.data_access.command import get_commands_in_range
 from services.data_access.flight import get_flight, create_or_update_flight
-from services.data_access.flight_data import insert_flight_data, get_flight_data_in_range, get_aggregated_flight_data, resolutions
-from services.data_access.flight_data_compact import insert_flight_data as insert_flight_data_compact, get_aggregated_flight_data as get_aggregated_flight_data_compact
+from services.data_access.flight_data_compact import get_flight_data_in_range, insert_flight_data as insert_flight_data_compact, get_aggregated_flight_data as get_aggregated_flight_data_compact, resolutions
 
 
 flight_data_controller = Blueprint('flight_data', __name__, url_prefix='/flight_data')
@@ -100,7 +99,7 @@ async def report_flight_data(flight_id: str, vessel_part: str):
     # Import the measurements with the specified schema
     measurements = measurement_schema().load_list_safe(FlightMeasurement, parsed_data)
 
-    await insert_flight_data(measurements, flight_id, vessel_part)
+    await insert_flight_data_compact(measurements, flight_id)
 
     return jsonify({'success': True})
 
@@ -192,7 +191,7 @@ async def report_flight_data_combined(flight_id: str):
 
         measurements_to_save.extend(measurements)
 
-    await insert_flight_data(measurements_to_save, flight_id)
+    await insert_flight_data_compact(measurements_to_save, flight_id)
 
     return jsonify({'success': True})
 
@@ -402,4 +401,4 @@ async def getRange(flight_id: str, vessel_part: str, start: str, end: str):
     
     values = await get_flight_data_in_range(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end))
 
-    return jsonify(values)
+    return FlightMeasurementCompactDBSchema(many=True).dumps(values)

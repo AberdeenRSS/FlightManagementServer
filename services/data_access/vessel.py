@@ -60,12 +60,19 @@ async def get_all_vessels() -> list[Vessel]:
 # Gets the current version of the vessel
 async def get_vessel(_id: str) -> Union[Vessel, None]:
     vessel_collection = get_vessel_collection()
-    vessels_raw = await vessel_collection.find({"_id": _id}).to_list(1000) # type: ignore
+    vessels_raw = await vessel_collection.find({"_id": _id}).to_list(1) # type: ignore
 
     if len(vessels_raw) > 0:
         return VesselSchema().load_safe(Vessel, vessels_raw[0])
 
     return None
+
+async def get_vessel_by_name(name: str):
+    vessel_collection = get_vessel_collection()
+    vessels_raw = await vessel_collection.find({"name": name}).to_list(1000)
+
+    return VesselSchema().load_list_safe(Vessel, vessels_raw)
+
 
 # Gets an old version of the vessel
 async def get_historic_vessel(_id: str, _version: int):

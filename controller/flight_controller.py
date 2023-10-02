@@ -9,8 +9,8 @@ from flasgger import swag_from
 
 from models.flight import Flight, FlightSchema, FLIGHT_DEFAULT_HEAD_TIME
 from services.auth.jwt_user_info import User, get_user_info
-from services.data_access.flight import create_or_update_flight, get_all_flights_for_vessels, get_flight
-from services.data_access.vessel import get_vessel
+from services.data_access.flight import create_or_update_flight, get_all_flights_for_vessels, get_all_flights_for_vessels_by_name, get_flight
+from services.data_access.vessel import get_vessel 
 
 
 flight_controller = Blueprint('flight', __name__, url_prefix='/flight')
@@ -89,3 +89,11 @@ async def get_all(vessel_id):
     flights = await get_all_flights_for_vessels(str(vessel_id))
     return FlightSchema(many=True).dumps(flights)
 
+@flight_controller.route("/get_by_name/<vessel_id>/<name>", methods = ['GET'])
+@auth_required
+async def get_by_name(vessel_id, name):
+    '''
+    Fetches all flights with the specified name
+    '''
+    flights = await get_all_flights_for_vessels_by_name(str(vessel_id), name)
+    return FlightSchema(many=True).dumps(flights)

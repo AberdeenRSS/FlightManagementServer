@@ -3,11 +3,11 @@ from uuid import UUID, uuid4
 from quart import Blueprint
 from quart import request, flash, g, jsonify
 from middleware.auth.requireAuth import auth_required, role_required
+from quart_schema import QuartSchema, validate_request, validate_response
 
 from models.vessel import VesselSchema, Vessel
 from services.auth.jwt_user_info import User, get_user_info
-from services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel
-
+from services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel, get_vessel_by_name
 
 
 vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
@@ -112,6 +112,14 @@ async def get_vessel_historic(vessel_id: str, version: int):
     vessel = Vessel(_id = vessel_historic._id.id, _version=version, name=vessel_historic.name, parts=vessel_historic.parts)
 
     return VesselSchema().dump(vessel)
+
+@vessel_api.get("/get_by_name/<name>")
+@auth_required
+async def get_by_name(name: str):
+    vessels = await get_vessel_by_name(name)
+
+    return VesselSchema(many=True).dumps(vessels)
+
 
 
 @vessel_api.route("/get_test_vessels", methods = ['GET'])

@@ -39,6 +39,11 @@ async def get_all_flights_for_vessels(_vessel_id: str):
     raw = await collection.find({'_vessel_id': str(_vessel_id) }).to_list(1000) # type: ignore
     return FlightSchema().load_list_safe(Flight, raw)
 
+async def get_all_flights_for_vessels_by_name(_vessel_id: str, name: str):
+    collection = get_flight_collection()
+    raw = await collection.find({'_vessel_id': str(_vessel_id), 'name': name }).to_list(1000) # type: ignore
+    return FlightSchema().load_list_safe(Flight, raw)
+
 async def get_flight(_id: str) -> Union[Flight, None]:
     collection = get_flight_collection()
     raw = await collection.find({'_id': _id}).to_list(1000) # type: ignore
