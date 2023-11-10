@@ -16,7 +16,6 @@ vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
 
 # Method for a vessel to register
 @vessel_api.route("/register", methods = ['POST'])
-@auth_required
 @role_required('Access.Vessel')
 async def registerVessel():
     """
