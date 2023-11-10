@@ -281,7 +281,6 @@ async def report_flight_data_compact(flight_id: str):
 
 
 @flight_data_controller.route("/get_aggregated_range/<flight_id>/<vessel_part>/<resolution>/<start>/<end>", methods = ['GET'])
-@auth_required
 async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, start: str, end: str):
     """
     Gets flight measurements for a specific part within the specified range at a specified resolution
@@ -344,7 +343,6 @@ async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, star
     return FlightMeasurementCompactDBSchema(many=True).dumps(values)
 
 @flight_data_controller.route("/get_range/<flight_id>/<vessel_part>/<start>/<end>", methods = ['GET'])
-@auth_required
 async def getRange(flight_id: str, vessel_part: str, start: str, end: str):
     """
     Gets flight measurements for a specific part within the specified range.

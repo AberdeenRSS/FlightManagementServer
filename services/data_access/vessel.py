@@ -15,6 +15,12 @@ def get_historic_vessel_collection() -> AgnosticCollection:
     db = get_db()
     return db['vessels_historic']
 
+async def update_vessel_without_version_change(vessel: Vessel):
+    vessel_collection = get_vessel_collection()
+
+    result = await vessel_collection.replace_one({'_id': str(vessel._id)}, cast(dict, VesselSchema().dump(vessel)), upsert = True) # type: ignore
+
+
 # Creates or updates the vessel and returns the value written to the database
 async def create_or_update_vessel(vessel: Vessel) -> Vessel:
     vessel_collection = get_vessel_collection()
