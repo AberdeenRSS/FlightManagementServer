@@ -1,22 +1,18 @@
 
-import asyncio
 from datetime import datetime, timezone
 import math
 import time
-from typing import Iterable, Tuple, Union, cast
+from typing import Iterable, cast
 import uuid
 from quart import Blueprint
-from quart import request, flash, g, jsonify, current_app
+from quart import request, jsonify, current_app
 from middleware.auth.requireAuth import auth_required
-from models.flight_measurement import FlightMeasurement, FlightMeasurementAggregatedSchema, FlightMeasurementSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema, getConcreteMeasurementSchema
+from models.flight_measurement import FlightMeasurement, FlightMeasurementSeriesIdentifier, getConcreteMeasurementSchema
 from itertools import groupby
 
-from models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME, FlightSchema
-from models.command import CommandSchema
-from models.flight_measurement_compact import FlightMeasurementCompact, FlightMeasurementCompactDB, FlightMeasurementCompactDBSchema, FlightMeasurementCompactSchema, to_compact_db
+from models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME
+from models.flight_measurement_compact import FlightMeasurementCompactDB, FlightMeasurementCompactDBSchema, to_compact_db
 
-from services.auth.jwt_user_info import User, get_user_info
-from services.data_access.command import get_commands_in_range
 from services.data_access.flight import get_flight, create_or_update_flight
 from services.data_access.flight_data_compact import get_flight_data_in_range, insert_flight_data as insert_flight_data_compact, get_aggregated_flight_data as get_aggregated_flight_data_compact, resolutions
 

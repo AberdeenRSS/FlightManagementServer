@@ -3,7 +3,7 @@ from quart import g, request
 
 class User:
     # A unique id of the user
-    unique_id: str
+    _id: str
 
     roles: list[str]
 
@@ -18,7 +18,8 @@ def set_user_info(raw_token: dict[str, Any], sid: Union[str, None] = None):
     global socket_users
 
     user = User()
-    user.unique_id = raw_token['sub']
+    user._id = raw_token['uid']
+    user.name = raw_token.get('name')
     user.token = raw_token
     user.roles = raw_token.get('roles') or list()
 
