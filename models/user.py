@@ -20,13 +20,13 @@ class User:
 
     _id: UUID
 
+    pw: Union[str, None]
+    ''' Password or access token (salted and hashed) '''
+
     unique_name: str = ""
     '''unique name of the user (e.g. an email address)'''
 
     name: str = ""
-
-    pw: str = ""
-    ''' Password or access token (salted and hashed) '''
 
     roles: list[str] = field(default_factory=list)
 
@@ -40,7 +40,7 @@ class UserSchema(make_safe_schema(User)):
 
     name = fields.String()
 
-    pw = fields.String()
+    pw = fields.String(allow_none=True)
     ''' Password or access token (salted and hashed) '''
 
     roles = fields.List(fields.String())

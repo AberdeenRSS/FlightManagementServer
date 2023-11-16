@@ -6,21 +6,24 @@ from typing import Iterable, cast
 import uuid
 from quart import Blueprint
 from quart import request, jsonify, current_app
-from middleware.auth.requireAuth import auth_required
+from middleware.auth.requireAuth import auth_required, role_required, use_auth
 from models.flight_measurement import FlightMeasurement, FlightMeasurementSeriesIdentifier, getConcreteMeasurementSchema
 from itertools import groupby
 
 from models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME
 from models.flight_measurement_compact import FlightMeasurementCompactDB, FlightMeasurementCompactDBSchema, to_compact_db
+from services.auth.permission_service import has_flight_permission
 
 from services.data_access.flight import get_flight, create_or_update_flight
 from services.data_access.flight_data_compact import get_flight_data_in_range, insert_flight_data as insert_flight_data_compact, get_aggregated_flight_data as get_aggregated_flight_data_compact, resolutions
+from services.data_access.vessel import get_vessel
 
 
 flight_data_controller = Blueprint('flight_data', __name__, url_prefix='/flight_data')
 
 @flight_data_controller.route("/report/<flight_id>/<vessel_part>", methods = ['POST'])
 @auth_required
+@role_required('vessel')
 async def report_flight_data(flight_id: str, vessel_part: str):
     """
     Method to report flight data. 
@@ -101,6 +104,7 @@ async def report_flight_data(flight_id: str, vessel_part: str):
 
 @flight_data_controller.route("/report/<flight_id>", methods = ['POST'])
 @auth_required
+@role_required('vessel')
 async def report_flight_data_combined(flight_id: str):
     """
     Method to report flight data for multiple parts
@@ -193,6 +197,7 @@ async def report_flight_data_combined(flight_id: str):
 
 @flight_data_controller.route("/report_compact/<flight_id>", methods = ['POST'])
 @auth_required
+@role_required('vessel')
 async def report_flight_data_compact(flight_id: str):
     """
     Method to report flight data for multiple parts
@@ -281,6 +286,7 @@ async def report_flight_data_compact(flight_id: str):
 
 
 @flight_data_controller.route("/get_aggregated_range/<flight_id>/<vessel_part>/<resolution>/<start>/<end>", methods = ['GET'])
+@use_auth
 async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, start: str, end: str):
     """
     Gets flight measurements for a specific part within the specified range at a specified resolution
@@ -326,8 +332,16 @@ async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, star
 
     flight = await get_flight(flight_id)
 
-    if not flight:
+    if flight is None:
         return 'Flight does not exist', 404
+    
+    vessel = await get_vessel(str(flight._vessel_id))
+
+    if vessel is None:
+        return 'Vessel does not exist', 404
+    
+    if not has_flight_permission(flight, vessel, 'read'):
+        return 'You don\'t have the required permission to access the flight', 403
 
     measured_parts = cast(dict, flight.measured_parts)
 
@@ -343,6 +357,7 @@ async def get_aggregated(flight_id: str, vessel_part: str, resolution: str, star
     return FlightMeasurementCompactDBSchema(many=True).dumps(values)
 
 @flight_data_controller.route("/get_range/<flight_id>/<vessel_part>/<start>/<end>", methods = ['GET'])
+@use_auth
 async def getRange(flight_id: str, vessel_part: str, start: str, end: str):
     """
     Gets flight measurements for a specific part within the specified range.
@@ -383,8 +398,16 @@ async def getRange(flight_id: str, vessel_part: str, start: str, end: str):
 
     flight = await get_flight(flight_id)
 
-    if not flight:
+    if flight is None:
         return 'Flight does not exist', 404
+    
+    vessel = await get_vessel(str(flight._vessel_id))
+
+    if vessel is None:
+        return 'Vessel does not exist', 404
+    
+    if not has_flight_permission(flight, vessel, 'read'):
+        return 'You don\'t have the required permission to access the flight', 403
 
     measured_parts = cast(dict, flight.measured_parts)
 

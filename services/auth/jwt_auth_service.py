@@ -2,7 +2,7 @@ import datetime
 import cryptography
 import jwt
 import time
-from models.token import Token, generate_token
+from models.authorization_code import AuthorizationCode, generate_auth_code
 from models.user import User, hash_password
 
 from services.data_access.user import get_user_by_unique_name
@@ -31,7 +31,7 @@ def generate_access_token(user: User):
   return access_token
 
 def generate_refresh_token(user: User):
-  return Token(generate_token(), user._id, True, datetime.datetime.fromtimestamp(time.time() + LIFE_SPAN))
+  return AuthorizationCode(generate_auth_code(265), user._id, True, datetime.datetime.fromtimestamp(time.time() + LIFE_SPAN))
 
 def validate_access_token(token: str):
   return jwt.decode(token, public_key, algorithms=['RS256'], issuer=ISSUER, options={"require": ["exp", "iss"]}, verify=True)

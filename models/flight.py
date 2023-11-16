@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from datetime import timezone
 from typing import Union
 from uuid import UUID, uuid4
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 from models.command import CommandInfo, CommandInfoSchema
 from models.flight_measurement import FlightMeasurement, FlightMeasurementDescriptor, FlightMeasurementDescriptorSchema
 from models.vessel import VesselSchema
@@ -63,6 +63,16 @@ class Flight:
     List of available commands and their json schemas. The keys have to be the part the command is issued to
     """
 
+    permissions: dict[UUID, str] = field(default_factory=dict)
+    """
+    User id permission pairs of who has what permission on the vessel
+    """
+
+    no_auth_permission: Union[None, str] = 'owner'
+    """
+    The permission everyone has regardless of if they are logged in or not
+    """
+
 class FlightSchema(make_safe_schema(Flight)):
 
     _id = fields.UUID(required = False)
@@ -102,4 +112,14 @@ class FlightSchema(make_safe_schema(Flight)):
     available_commands = fields.Dict(keys= fields.Str(), values= fields.Nested(CommandInfoSchema))
     """
     List of available commands and their json schemas. The keys have to be the part the command is issued to
+    """
+    
+    permissions = fields.Dict(fields.UUID, fields.String(validate=validate.Regexp(r"(read)|(write)")))
+    """
+    User id permission pairs of who has what permission on the vessel
+    """
+
+    no_auth_permission = fields.String(default='owner', missing='owner', validate=validate.Regexp(r"(none)|(read)|(write)"))
+    """
+    The permission everyone has regardless of if they are logged in or not
     """

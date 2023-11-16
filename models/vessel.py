@@ -72,7 +72,7 @@ class VesselSchema(make_safe_schema(Vessel)):
     User id permission pairs of who has what permission on the vessel
     """
 
-    no_auth_permission = fields.String(default='owner', missing='owner', validate=validate.Regexp(r"(none)|(view)|(read)|(write)|(owner)"))
+    no_auth_permission = fields.String(default='owner', missing='owner', allow_none=True, validate=validate.Regexp(r"(none)|(view)|(read)|(write)|(owner)"))
     """
     The permission everyone has regardless of if they are logged in or not
     """

@@ -8,11 +8,11 @@ from marshmallow import fields
 
 from helper.model_helper import make_safe_schema
 
-def generate_token():
-    return base64.b64encode(secrets.token_bytes(256)).decode()
+def generate_auth_code(length: int):
+    return base64.b64encode(secrets.token_bytes(length)).decode()
 
 @dataclass
-class Token:
+class AuthorizationCode:
     '''A token that can be used for authentication'''
 
     _id: str
@@ -24,7 +24,7 @@ class Token:
     valid_until: datetime.datetime
 
 
-class TokenSchema(make_safe_schema(Token)):
+class AuthorizationCodeSchema(make_safe_schema(AuthorizationCode)):
 
     _id = fields.String()
 

@@ -20,8 +20,8 @@ async def get_or_init_user_collection():
 
     async def create_collection(db: AgnosticDatabase, n: str) -> AgnosticCollection:
         collection = db['user']
-        await collection.create_index('name')
-        await collection.create_index('unique_name', unique = True)
+        await collection.create_index('name', unique=False) # type: ignore
+        await collection.create_index('unique_name', unique = True) # type: ignore
         return collection
 
     return await get_or_init_collection(f'user', create_collection)
@@ -36,7 +36,7 @@ async def create_or_update_user(user: User):
 async def get_user(id: UUID):
     collection = await get_or_init_user_collection()
 
-    raw = await collection.find({'_id': id}).to_list(1) # type: ignore
+    raw = await collection.find({'_id': str(id)}).to_list(1) # type: ignore
 
     if len(raw) > 0:
         return UserSchema().load_safe(User, raw[0])

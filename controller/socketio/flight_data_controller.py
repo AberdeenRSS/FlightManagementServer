@@ -5,11 +5,15 @@ from socketio import Server
 
 from quart import current_app
 
-from middleware.auth.requireAuth import socket_authenticated_only
+from middleware.auth.requireAuth import socket_authenticated_only, socket_use_auth
 from models.flight_measurement import FlightMeasurementSchema
 from models.flight_measurement_compact import FlightMeasurementCompactDB, FlightMeasurementCompactDBSchema
+from services.auth.permission_service import has_flight_permission
+from services.data_access.flight import get_flight
 from services.data_access.flight_data_compact import NEW_FLIGHT_DATA_COMPACT
 from blinker import NamedSignal, signal
+
+from services.data_access.vessel import get_vessel
 
 new_flight_data_event = 'flight_data.new'
 
@@ -54,9 +58,22 @@ def init_flight_data_controller(sio: Server, logger: Logger):
 
 
     @sio.on('flight_data.subscribe')
-    @socket_authenticated_only
-    def subscribe(sid, flight_id):
+    @socket_use_auth
+    async def subscribe(sid, flight_id):
         """ Join a room to receive all flight data send in a specific flight"""
+
+        flight = await get_flight(flight_id)
+
+        if flight is None:
+            return 'Flight does not exist', 404
+    
+        vessel = await get_vessel(str(flight._vessel_id))
+
+        if vessel is None:
+            return 'Vessel does not exist', 404
+        
+        if not has_flight_permission(flight, vessel, 'read'):
+            return 'You don\'t have the required permission to access the flight', 403
     
         sio.enter_room(sid, get_flight_data_room(flight_id))
         

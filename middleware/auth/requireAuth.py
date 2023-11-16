@@ -22,7 +22,7 @@ def try_authenticate_http() -> Union[str, None]:
         token = request.headers['Authorization']
 
     if not token:
-        return 'a valid token is missing'
+        return 'No Token'
 
     if token.startswith('Bearer '):
         token = token.replace('Bearer ', '')
@@ -79,6 +79,24 @@ def auth_required(f):
 
     return decorator
 
+def use_auth(f):
+    '''Fails only on invalid token but not on no token'''
+    @wraps(f)
+    async def decorator(*args, **kwargs):
+
+        error_msg = try_authenticate_http()
+
+        if error_msg is not None and error_msg != 'No Token':
+            return error_msg
+
+        res = f(*args, **kwargs)
+
+        if inspect.iscoroutine(res) or inspect.iscoroutinefunction(res):
+            return await res
+        return res
+
+    return decorator
+
 def socket_authenticated_only(f):
     @wraps(f)
     async def wrapped(*args, **kwargs):
@@ -87,7 +105,27 @@ def socket_authenticated_only(f):
 
         error = try_authenticate_socket(sid)
 
-        if error != None:
+        if error is not None :
+            # current_app.logger.info('Unauthorized request, disconnected client')
+            disconnect()
+        else:
+            res = f(*args, **kwargs)
+
+            if inspect.iscoroutine(res) or inspect.iscoroutinefunction(res):
+                return await res
+            return res
+    return wrapped
+
+def socket_use_auth(f):
+    '''Fails only on invalid token but not on no token'''
+    @wraps(f)
+    async def wrapped(*args, **kwargs):
+    
+        sid: str = args[0] # get the socket id of the client (always the first parameter of the wrapped method)
+
+        error = try_authenticate_socket(sid)
+
+        if error is not None and error != 'No token found in handshake args':
             # current_app.logger.info('Unauthorized request, disconnected client')
             disconnect()
         else:

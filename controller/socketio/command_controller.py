@@ -4,11 +4,15 @@ from typing import Coroutine, cast
 from socketio import Server
 from quart import current_app
 
-from middleware.auth.requireAuth import socket_authenticated_only
+from middleware.auth.requireAuth import role_required_socket, socket_authenticated_only, socket_use_auth
 from models.command import CommandSchema
 from services.auth.jwt_user_info import get_user_info
+from services.auth.permission_service import has_flight_permission
 from services.data_access.command import get_commands_new_signal, get_command_update_signal
 from blinker import signal
+
+from services.data_access.flight import get_flight
+from services.data_access.vessel import get_vessel
 
 new_command_event = 'command.new'
 update_command_event = 'command.update'
@@ -87,14 +91,22 @@ def init_command_controller(sio: Server, logger: Logger):
     update_signal.connect(make_on_update_command(sio), weak=False)
 
     @sio.on('command.subscribe_as_client')
-    @socket_authenticated_only
-    def subscribe_as_client(sid, flight_id):
+    @socket_use_auth
+    async def subscribe_as_client(sid, flight_id):
         """ Join a room to receive all commands send for a specific flight"""
 
-        # user = get_user_info(sid)
+        flight = await get_flight(flight_id)
 
-        # if user is None:
-        #     return
+        if flight is None:
+            return 'Flight does not exist', 404
+    
+        vessel = await get_vessel(str(flight._vessel_id))
+
+        if vessel is None:
+            return 'Vessel does not exist', 404
+        
+        if not has_flight_permission(flight, vessel, 'read'):
+            return 'You don\'t have the required permission to access the flight', 403
         
         room = get_command_room_clients(flight_id)
 
@@ -102,6 +114,7 @@ def init_command_controller(sio: Server, logger: Logger):
 
     @sio.on('command.subscribe_as_vessel')
     @socket_authenticated_only
+    @role_required_socket('vessel')
     def subscribe_as_vessel(sid, flight_id):
         """ Join a room to receive all commands send for a specific flight"""
 

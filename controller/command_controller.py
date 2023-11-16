@@ -3,7 +3,7 @@ import json
 from typing import cast
 from quart import Blueprint
 from quart import request, flash, g, jsonify
-from middleware.auth.requireAuth import auth_required
+from middleware.auth.requireAuth import auth_required, role_required, use_auth
 from uuid import uuid4
 
 from jsonschema import validate, ValidationError
@@ -11,6 +11,7 @@ from jsonschema import validate, ValidationError
 from models.command import CommandSchema, Command
 from models.flight import FLIGHT_MINIMUM_HEAD_TIME, FLIGHT_DEFAULT_HEAD_TIME
 from services.auth.jwt_user_info import User, get_user_info
+from services.auth.permission_service import has_flight_permission
 from services.data_access.command import get_commands_in_range, insert_commands, insert_or_update_commands
 from services.data_access.flight import get_flight, create_or_update_flight
 from services.data_access.vessel import get_vessel
@@ -19,7 +20,7 @@ from services.data_access.vessel import get_vessel
 command_controller = Blueprint('command', __name__, url_prefix='/command')
 
 @command_controller.route("/dispatch/<flight_id>", methods = ['POST'])
-@auth_required
+@use_auth
 async def dispatch_commands(flight_id: str):
     """
     Dispatches a command to the vessel. Meant to be called from a ui/frontend or
@@ -78,7 +79,15 @@ async def dispatch_commands(flight_id: str):
     flight = await get_flight(flight_id)
 
     if flight is None:
-        return 'Unknown flight', 404
+        return 'Flight does not exist', 404
+    
+    vessel = await get_vessel(str(flight._vessel_id))
+
+    if vessel is None:
+        return 'Vessel does not exist'
+    
+    if not has_flight_permission(flight, vessel, 'write'):
+        return 'You don\'t have write permission for this flight', 403 
 
     for command in commands:
         if command._command_type not in flight.available_commands:
@@ -116,6 +125,7 @@ async def dispatch_commands(flight_id: str):
 
 @command_controller.route("/confirm/<flight_id>", methods = ['POST'])
 @auth_required
+@role_required('vessel')
 async def confirm_command(flight_id: str):
     """
     To be called by the vessel to confirm the the receipt or the
@@ -205,7 +215,7 @@ async def confirm_command(flight_id: str):
     return '', 200
 
 @command_controller.route("/get_range/<flight_id>/<start>/<end>/<command_type>/<vessel_part>", methods = ['GET'])
-@auth_required
+@use_auth
 async def get_range(flight_id: str, start: str, end: str, command_type: str, vessel_part: str,):
     """
     Gets all commands in the specified range
@@ -244,6 +254,19 @@ async def get_range(flight_id: str, start: str, end: str, command_type: str, ves
           items:
             $ref: "#/definitions/Command"
     """
+
+    flight = await get_flight(flight_id)
+
+    if flight is None:
+        return 'Flight does not exist', 404
+    
+    vessel = await get_vessel(str(flight._vessel_id))
+
+    if vessel is None:
+        return 'Vessel does not exist'
+    
+    if not has_flight_permission(flight, vessel, 'write'):
+        return 'You don\'t have write permission for this flight', 403 
 
     if start.endswith('Z'):
         start = start[:-1]

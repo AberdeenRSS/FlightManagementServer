@@ -4,7 +4,7 @@ from typing import Coroutine, cast
 from quart import current_app
 from socketio import Server
 from models.flight import FlightSchema
-from middleware.auth.requireAuth import socket_authenticated_only
+from middleware.auth.requireAuth import socket_authenticated_only, socket_use_auth
 from blinker import signal
 
 from services.data_access.flight import get_flight_new_signal, get_flight_update_signal
@@ -15,28 +15,28 @@ flight_update_event = 'flights.update'
 def get_flight_room():
     return f'flights'
 
-def make_on_new_command(sio: Server):
+def make_on_new_flight(sio: Server):
 
-    def on_new_command(sender, **kw):
+    def on_new_flight(sender, **kw):
 
         flight = kw['flight']
         coroutine = sio.emit(flight_new_event, FlightSchema().dump(flight), to=get_flight_room())
 
         asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
 
+    return on_new_flight
 
-    return on_new_command
+def make_on_update_flight(sio: Server):
 
-def make_on_update_command(sio: Server):
-
-    def on_update_command(sender, **kw):
+    def on_update_flight(sender, **kw):
 
         flight = kw['flight']
+
         coroutine = sio.emit(flight_update_event, FlightSchema().dump(flight), to=get_flight_room())
 
         asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
 
-    return on_update_command
+    return on_update_flight
 
 def init_flight_controller(sio: Server, logger: Logger):
 
@@ -44,13 +44,13 @@ def init_flight_controller(sio: Server, logger: Logger):
     update_signal = get_flight_update_signal()
 
     # Connect the data access signal to emit flight data events
-    new_signal.connect(make_on_new_command(sio), weak=False)
-    update_signal.connect(make_on_update_command(sio), weak=False)
+    new_signal.connect(make_on_new_flight(sio), weak=False)
+    update_signal.connect(make_on_update_flight(sio), weak=False)
 
     @sio.on('flights.subscribe')
-    @socket_authenticated_only
+    @socket_use_auth
     def subscribe(sid):
-        """ Join a room to receive all flight data send in a specific flight"""
+        """ Join a room to receive updates if flights are created/modified"""
     
         sio.enter_room(sid, get_flight_room())
         
