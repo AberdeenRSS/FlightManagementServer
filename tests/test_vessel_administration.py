@@ -4,6 +4,7 @@ import pytest
 from quart import Quart
 
 from tests.auth_helper import get_auth_headers
+from tests.conftest import TEST_USER_UUID
 
 @pytest.mark.asyncio
 async def test_create_vessel(quart: Quart, test_user_bearer: Coroutine[str, None, str]):
@@ -21,6 +22,11 @@ async def test_create_vessel(quart: Quart, test_user_bearer: Coroutine[str, None
     vessel = await create_response.json
 
     assert vessel['name'] == vessel_name
+    permissions = vessel['permissions']
+    owners = [p[0] for p in permissions.items() if p[1] == 'owner']
+
+    assert len(owners) == 1
+    assert owners[0] == TEST_USER_UUID
 
 @pytest.mark.asyncio
 async def test_create_vessel_auth_code(quart: Quart, test_user_bearer: Coroutine[str, None, str]):

@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 import datetime
 from os import environ
 from quart import Blueprint, request
 import httpx
 import urllib.parse
 from middleware.auth.requireAuth import auth_required
+from models.auth_models import LoginModel, RegisterModel
 from models.authorization_code import TokenPair, TokenPairSchema
 from models.user import User, hash_password
 from services.data_access.auth_code import create_auth_code
@@ -12,6 +14,10 @@ from services.auth.jwt_auth_service import generate_access_token, generate_refre
 
 from services.data_access.user import get_user, get_user_by_unique_name, create_or_update_user
 from services.data_access.auth_code import get_code, delete_code
+
+from quart_schema import DataSource, documentation
+import quart_schema
+from pydantic import RootModel
 
 client_id = environ.get('FLIGHT_MANAGEMENT_SERVER_CLIENT_ID')
 client_secret = environ.get('FLIGHT_MANAGEMENT_SERVER_CLIENT_SECRET')
@@ -25,45 +31,35 @@ async def generate_token_with_refresh(user: User):
     
     return TokenPair(generate_access_token(user), refresh_token._id)
 
-@auth_controller.route("/register", methods=['POST'])
-async def register():
-    request_body = await request.get_json()
 
-    if 'name' not in request_body:
-        return 'User name required', 400
-    
-    if 'unique_name' not in request_body:
-        return 'Unique name required', 400
-    
-    if 'pw' not in request_body:
-        return 'Password required', 400
-    
-    existing_user = await get_user_by_unique_name(request_body['unique_name'])
+
+@auth_controller.route("/register", methods=['POST'])
+@quart_schema.validate_request(RegisterModel)
+@quart_schema.validate_response(TokenPair)
+@quart_schema.security_scheme([])
+async def register(data: RegisterModel):
+
+    existing_user = await get_user_by_unique_name(data.unique_name)
 
     if existing_user is not None:
         return 'User with that name already exists', 400
     
     user_id = uuid4()
 
-    user = User(user_id, hash_password(user_id, request_body['pw']), request_body['unique_name'], request_body['name'])
+    user = User(user_id, hash_password(user_id, data.pw), data.unique_name, data.name)
 
     await create_or_update_user(user)
 
-    return TokenPairSchema().dump(await generate_token_with_refresh(user))
+    return await generate_token_with_refresh(user)
 
 
 @auth_controller.route("/login", methods=['POST'])
-async def login():
-
-    request_body = await request.get_json()
+@quart_schema.validate_request(LoginModel)
+@quart_schema.validate_response(TokenPair)
+@quart_schema.security_scheme([])
+async def login(data: LoginModel):
     
-    if 'unique_name' not in request_body:
-        return 'Unique name required', 400
-    
-    if 'pw' not in request_body:
-        return 'Password required', 400
-    
-    existing_user = await get_user_by_unique_name(request_body['unique_name'])
+    existing_user = await get_user_by_unique_name(data.unique_name)
 
     if existing_user is None:
         return 'User does not exist', 401
@@ -71,13 +67,16 @@ async def login():
     if existing_user.pw is None:
         return 'Password login available for user', 401
     
-    if existing_user.pw != hash_password(existing_user._id, request_body['pw']):
+    if existing_user.pw != hash_password(existing_user._id, data.pw):
         return 'Password incorrect', 401
     
-    return TokenPairSchema().dump(await generate_token_with_refresh(existing_user))
+    return await generate_token_with_refresh(existing_user)
   
 
 @auth_controller.route("/authorization_code_flow", methods=['POST'])
+@quart_schema.validate_response(TokenPair)
+@quart_schema.security_scheme([])
+@quart_schema.document_request(RootModel[str])
 async def authorization_code_flow():
 
     code_id = await request.get_data(True, True, False)
@@ -103,9 +102,11 @@ async def authorization_code_flow():
     if token.single_use:
         await delete_code(code_id)
 
-    return TokenPairSchema().dump(await generate_token_with_refresh(user))
+    return await generate_token_with_refresh(user)
 
 @auth_controller.route('/auth_code/rewoke', methods=['POST'])
+@quart_schema.security_scheme([])
+@quart_schema.document_request(RootModel[str])
 async def rewoke_auth_code():
     '''
     Deletes the auth code. This controller does not have any authorization on it, 

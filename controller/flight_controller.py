@@ -1,6 +1,7 @@
 from typing import cast
 from quart import Blueprint
 from quart import request, flash, g, jsonify
+from quart_schema import tag
 from middleware.auth.requireAuth import auth_required, role_required, use_auth
 from uuid import uuid4
 from datetime import datetime, timedelta
@@ -64,6 +65,7 @@ async def create_flight():
     return FlightSchema().dumps(acc)
 
 @flight_controller.route("/get_all/<vessel_id>", methods = ['GET'])
+@tag(['flight'])
 @use_auth
 async def get_all(vessel_id):
     """

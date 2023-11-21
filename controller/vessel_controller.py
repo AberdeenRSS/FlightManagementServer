@@ -4,9 +4,11 @@ from uuid import UUID, uuid4
 from quart import Blueprint
 from quart import request, flash, g, jsonify
 from middleware.auth.requireAuth import auth_required, role_required, use_auth
-from quart_schema import QuartSchema, validate_request, validate_response
+from quart_schema import QuartSchema, document_response, tag, validate_request, validate_response
 from models.authorization_code import AuthorizationCode, AuthorizationCodeSchema, generate_auth_code
 from models.user import User
+
+from pydantic import RootModel
 
 from models.vessel import VesselSchema, Vessel
 from services.auth.jwt_user_info import get_user_info
@@ -15,14 +17,15 @@ from services.data_access.auth_code import create_auth_code, get_auth_codes_for_
 from services.data_access.user import create_or_update_user, get_user_by_unique_name
 from services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel, get_vessel_by_name, update_vessel_without_version_change
 
-
 vessel_api = Blueprint('vessel', __name__, url_prefix='/vessel')
 
 # Method for a vessel to register
 @vessel_api.route("/register", methods = ['POST'])
 @auth_required
 @role_required('vessel')
-async def registerVessel():
+@validate_request(Vessel)
+@validate_response(Vessel)
+async def registerVessel(data: Vessel):
     """
     Method to be called by a vessel to register itself. 
     The vessel is supposed to transmit how it is made up so others know what data
@@ -30,49 +33,28 @@ async def registerVessel():
     over time the old version of the vessel will be saved and the new information
     will then be used. All old flights that where performed with a previous version
     of the vessel can therefore still be used with the old version
-    ---
-    parameters:
-      - name: body
-        required: true
-        in: body
-        schema:
-          $ref: "#/definitions/Vessel"
-        description: The information about the vessel, including what parts it is made out of
-    responses:
-      200:
-        description: The resulting vessel (contains the new version that was chosen by the server)
-        schema:
-          $ref: "#/definitions/Vessel"
     """
 
-    raw_vessel = cast(dict, await request.get_json())
+    user = get_user_info()
 
-    # # Use the identity of the vessel as its id -> Only one entry per authentication code
-    # raw_vessel['_id'] = UUID(user_info.unique_id)
+    if user is None or UUID(user._id) != data._id:
+        return 'The vessel id has to match the current user id', 403
 
-    vessel = VesselSchema().load_safe(Vessel, raw_vessel)
+    acc = await create_or_update_vessel(data)
 
-    acc = await create_or_update_vessel(vessel)
-
-    return VesselSchema().dumps(acc)
+    return acc
 
 @vessel_api.get("/get_all")
 @use_auth
+@document_response(RootModel[list[Vessel]])
+@tag(['vessel'])
 async def get_all():
     """
     Returns all vessels known to server
-    ---
-    responses:
-      200:
-        description: All vessels
-        schema:
-          type: array
-          items:
-            $ref: "#/definitions/Vessel"
     """
 
     vessels = await get_all_vessels()
-    res = VesselSchema(many=True).dumps([v for v in vessels if has_vessel_permission(v, 'view')])
+    res = [v for v in vessels if has_vessel_permission(v, 'view')]
     return res
 
 @vessel_api.get("/get/<vessel_id>/<version>")
@@ -127,7 +109,7 @@ async def get_vessel_historic(vessel_id: str, version: int):
 async def get_by_name(name: str):
     vessels = await get_vessel_by_name(name)
 
-    return VesselSchema(many=True).dumps([v for v in vessels if has_vessel_permission(v, 'view')])
+    return VesselSchema(many=True).dump([v for v in vessels if has_vessel_permission(v, 'view')])
 
 @vessel_api.route("/get_test_vessels", methods = ['GET'])
 async def get_test_vessels():
@@ -145,9 +127,10 @@ async def get_test_vessels():
 
     vessel = Vessel(_id = uuid4(), _version = 1)
     vessel.name = 'Test vessel'
-    return VesselSchema().dumps(vessel)
+    return VesselSchema().dump(vessel)
 
-@vessel_api.route('/set_permission/<vessel_id>/<unique_user_name>/<permission>')
+@vessel_api.route('/set_permission/<vessel_id>/<unique_user_name>/<permission>', methods=['POST'])
+@use_auth
 async def set_permission(vessel_id: str, unique_user_name: str, permission: str):
 
   vessel = await get_vessel(vessel_id)
@@ -233,4 +216,4 @@ async def get_auth_codes(vessel_id):
   
   auth_codes = get_auth_codes_for_user(vessel_id)
 
-  return AuthorizationCodeSchema().dumps(auth_codes)
+  return AuthorizationCodeSchema().dump(auth_codes)

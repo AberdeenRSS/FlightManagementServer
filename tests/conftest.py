@@ -15,6 +15,7 @@ from models.user import User
 from services.data_access.auth_code import create_auth_code
 
 from services.data_access.user import create_or_update_user, get_user
+from tests.auth_helper import create_api_user, create_auth_code_for_user
 
 PORT = 8000
 LISTENING_IF = "127.0.0.1"
@@ -85,9 +86,7 @@ async def test_user():
     if existing_user is not None:
         return existing_user
     
-    new_user = User(TEST_USER_UUID, None, str(TEST_USER_UUID), 'Test user')
-
-    await create_or_update_user(new_user)
+    new_user = await create_api_user(TEST_USER_UUID)
 
     return new_user
 
@@ -96,9 +95,7 @@ async def test_user_auth_code(test_user: Coroutine[User, None, User]):
     user = await test_user
     assert user is not None
 
-    code = AuthorizationCode(generate_auth_code(265), TEST_USER_UUID, True, datetime.datetime.utcnow() + datetime.timedelta(0, 10_000))
-
-    await create_auth_code(code)
+    code = await create_auth_code_for_user(user)
 
     return code._id
 
