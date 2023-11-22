@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import cast
 from uuid import UUID, uuid4
 from quart import Blueprint
@@ -55,7 +56,7 @@ async def get_all():
 
     vessels = await get_all_vessels()
     res = [v for v in vessels if has_vessel_permission(v, 'view')]
-    return res
+    return VesselSchema().dump_list(res)
 
 @vessel_api.get("/get/<vessel_id>/<version>")
 @use_auth
