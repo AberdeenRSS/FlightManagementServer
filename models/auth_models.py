@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 
+from pydantic import BaseModel
+
 
 @dataclass
-class RegisterModel:
+class RegisterModel(BaseModel):
     name: str
 
     unique_name: str
@@ -10,7 +12,7 @@ class RegisterModel:
     pw: str
 
 @dataclass
-class LoginModel:
+class LoginModel(BaseModel):
 
     unique_name: str
 

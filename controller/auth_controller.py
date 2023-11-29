@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import datetime
 from os import environ
+from fastapi import APIRouter
 from quart import Blueprint, request
 import httpx
 import urllib.parse
@@ -22,7 +23,12 @@ from pydantic import RootModel
 client_id = environ.get('FLIGHT_MANAGEMENT_SERVER_CLIENT_ID')
 client_secret = environ.get('FLIGHT_MANAGEMENT_SERVER_CLIENT_SECRET')
 
-auth_controller = Blueprint('auth', __name__, url_prefix='/auth')
+auth_controller  = APIRouter(
+    prefix="/user",
+    tags=["user"],
+    dependencies=[],
+    # responses={404: {"description": "Not found"}},
+)
 
 async def generate_token_with_refresh(user: User):
     refresh_token = generate_refresh_token(user)
@@ -33,10 +39,8 @@ async def generate_token_with_refresh(user: User):
 
 
 
-@auth_controller.route("/register", methods=['POST'])
-@quart_schema.validate_request(RegisterModel)
-@quart_schema.validate_response(TokenPair)
-@quart_schema.security_scheme([])
+
+@auth_controller.post('/register')
 async def register(data: RegisterModel):
 
     existing_user = await get_user_by_unique_name(data.unique_name)
@@ -53,10 +57,7 @@ async def register(data: RegisterModel):
     return await generate_token_with_refresh(user)
 
 
-@auth_controller.route("/login", methods=['POST'])
-@quart_schema.validate_request(LoginModel)
-@quart_schema.validate_response(TokenPair)
-@quart_schema.security_scheme([])
+@auth_controller.post("/login")
 async def login(data: LoginModel):
     
     existing_user = await get_user_by_unique_name(data.unique_name)
@@ -73,13 +74,8 @@ async def login(data: LoginModel):
     return await generate_token_with_refresh(existing_user)
   
 
-@auth_controller.route("/authorization_code_flow", methods=['POST'])
-@quart_schema.validate_response(TokenPair)
-@quart_schema.security_scheme([])
-@quart_schema.document_request(RootModel[str])
-async def authorization_code_flow():
-
-    code_id = await request.get_data(True, True, False)
+@auth_controller.post("/authorization_code_flow")
+async def authorization_code_flow(code_id: str):
 
     token = await get_code(code_id)
 
@@ -104,24 +100,19 @@ async def authorization_code_flow():
 
     return await generate_token_with_refresh(user)
 
-@auth_controller.route('/auth_code/rewoke', methods=['POST'])
-@quart_schema.security_scheme([])
-@quart_schema.document_request(RootModel[str])
-async def rewoke_auth_code():
+@auth_controller.post('/auth_code/rewoke')
+async def rewoke_auth_code(code: str):
     '''
     Deletes the auth code. This controller does not have any authorization on it, 
     as having the auth code is authorization in itself
     '''
-
-    code = await request.get_data(True, True, False)
 
     if await delete_code(code):
         return 'deleted', 200
     
     return 'did_not_exist', 200
 
-@auth_controller.route('/verify_authenticated')
-@auth_required
+@auth_controller.get('/verify_authenticated')
 async def verify_authenticated():
     return 'success', 200
 

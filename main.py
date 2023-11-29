@@ -24,6 +24,8 @@ from services.swagger.init_swagger import init_swagger
 from os import environ
 import socketio
 
+from fastapi import FastAPI
+
 def create_app(debug=False):
 
     # Init db
@@ -98,6 +100,19 @@ def start_app():
 
     asyncio.run(serve(app, config))
 
+def start_fast_api():
+
+    app = FastAPI()
+
+    app.include_router(auth_controller)
+
+    config = Config()
+    config.bind = ["0.0.0.0:5000" if dockerized else "0.0.0.0:5000"] 
+    # config.bind = ['0.0.0.0:5000', 'localhost:5000']
+    config.debug = True
+    config.workers = 10 
+
+    asyncio.run(serve(app, config))
 
 
 if __name__ == '__main__':
