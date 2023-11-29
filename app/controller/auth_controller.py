@@ -5,11 +5,10 @@ from fastapi import APIRouter
 from quart import Blueprint, request
 import httpx
 import urllib.parse
-from middleware.auth.requireAuth import auth_required
-from models.auth_models import LoginModel, RegisterModel
-from models.authorization_code import TokenPair, TokenPairSchema
-from models.user import User, hash_password
-from services.data_access.auth_code import create_auth_code
+from ..models.auth_models import LoginModel, RegisterModel
+from ..models.authorization_code import TokenPair, TokenPairSchema
+from ..models.user import User, hash_password
+from ..services.data_access.auth_code import create_auth_code
 from uuid import uuid4
 from services.auth.jwt_auth_service import generate_access_token, generate_refresh_token
 
