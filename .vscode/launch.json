@@ -15,8 +15,18 @@
                 "FLIGHT_MANAGEMENT_SERVER_CONNECTION_STRING": "mongodb://localhost:27017",
                 "FLIGHT_MANAGEMENT_SERVER_DEBUG": "True",
                 "FLIGHT_MANAGEMENT_SERVER_JWT_AUDIENCE": "dffc1b9f-47ce-4ba4-a925-39c61eab50ba"
-            }
+            },
         },
+        {
+            "name": "Python: Pytest",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+              "${file}"
+            ],
+            "justMyCode": false
+        }
         // {
         //     "name": "Python: Flask",
         //     "type": "python",

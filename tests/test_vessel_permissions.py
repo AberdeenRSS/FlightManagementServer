@@ -64,7 +64,6 @@ async def test_vessel_view_privileges(quart: Quart, test_user_bearer: Coroutine[
     second_user = await create_api_user(uuid4())
     second_user_bearer = await get_bearer_for_user(second_user, client)
 
-
     # Expect the first request to fail as the second user has no permission yet
     get_all_response_1 = await client.get(f'/vessel/get_all', headers=get_auth_headers(second_user_bearer))
 

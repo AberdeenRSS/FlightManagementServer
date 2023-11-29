@@ -19,6 +19,7 @@ from controller.flight_controller import flight_controller
 from controller.flight_data_controller import flight_data_controller
 from controller.command_controller import command_controller
 from controller.auth_controller import auth_controller
+from controller.user_controller import user_controller
 from services.swagger.init_swagger import init_swagger
 from os import environ
 import socketio
@@ -61,6 +62,7 @@ def create_app(debug=False):
     app.register_blueprint(flight_data_controller)
     app.register_blueprint(command_controller)
     app.register_blueprint(auth_controller)
+    app.register_blueprint(user_controller)
 
     # socketio = SocketIO(app, cors_allowed_origins = '*')
 
