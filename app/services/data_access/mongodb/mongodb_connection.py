@@ -14,7 +14,7 @@ def get_db() -> AsyncIOMotorDatabase: # type: ignore
     # Case for when there is no global context available
     # e.g. during setup
     client = AsyncIOMotorClient(full_connection_string, uuidRepresentation='standard')
-    return client['rocketry']
+    return client['rocketry2']
 
 def init_app(app: FastAPI):
     global full_connection_string
