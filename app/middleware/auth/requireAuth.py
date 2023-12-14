@@ -71,7 +71,7 @@ def get_user_from_bearer(token: str) -> UserInfo:
         decoded_token = validate_access_token(token)
         return user_from_token(decoded_token)
     except Exception as err:
-        raise HTTPException(401, err.args[0])
+        raise HTTPException(401, f'Invalid token: {err.args[0]}')
 
 
 def socket_authenticated_only(sio: Server):
