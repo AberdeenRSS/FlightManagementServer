@@ -42,6 +42,8 @@ def socketio_mount(
 # Init fast api
 app = FastAPI()
 
+init_app(app)
+
 app.include_router(auth_controller)
 app.include_router(command_controller)
 app.include_router(vessel_controller)
