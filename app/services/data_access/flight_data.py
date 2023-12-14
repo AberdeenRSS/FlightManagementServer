@@ -1,13 +1,11 @@
 from datetime import datetime
 from typing import Literal, Sequence, Union, cast
-from quart import current_app
 from blinker import NamedSignal, Namespace, signal
 from motor.core import AgnosticCollection, AgnosticDatabase
 from pymongo import ASCENDING, DESCENDING
 
-from models.flight_measurement import FlightMeasurement, FlightMeasurementAggregatedSchema, FlightMeasurementDescriptor, FlightMeasurementSchema, FlightMeasurementDescriptorSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema
+from models.flight_measurement import FlightMeasurement, FlightMeasurementDescriptor, FlightMeasurementSeriesIdentifier
 from services.data_access.common.collection_managment import get_or_init_collection
-from quart import current_app
 from time import time
 
 #region Constants
@@ -127,7 +125,7 @@ async def insert_flight_data(measurements: list[FlightMeasurement], flight_id: s
 
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
-    measurements_raw = FlightMeasurementSchema().dump_list(measurements)
+    measurements_raw = [m.model_dump(by_alias=True) for m in measurements]
 
     for m in measurements_raw:
         m['_datetime'] = datetime.fromisoformat(m['_datetime'])
@@ -142,17 +140,17 @@ async def insert_flight_data(measurements: list[FlightMeasurement], flight_id: s
     preparation_time = write_start_time - insert_start_time
     db_time = after_write_time - write_start_time
 
-    current_app.logger.debug(f'Pushed {len(measurements)} measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
+    # current_app.logger.debug(f'Pushed {len(measurements)} measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
 
     s = cast(NamedSignal, signal(NEW_FLIGHT_DATA))
 
-    s.send(current_app._get_current_object(), flight_id=flight_id, measurements = measurements, vessel_part = vessel_part) # type: ignore
+    s.send(None, flight_id=flight_id, measurements = measurements, vessel_part = vessel_part) # type: ignore
 
 async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurement]:
     collection = await get_or_init_flight_data_collection()
 
     # Get all measurements in the date range
-    res = await collection.find({'_datetime': { '$gte': start, '$lt': end }, '_flight_id': {'$eq': series_identifier._flight_id}, 'part_id': {'$eq': series_identifier._vessel_part_id}  }).to_list(1000)
+    res = await collection.find({'_datetime': { '$gte': start, '$lt': end }, '_flight_id': {'$eq': series_identifier.flight_id}, 'part_id': {'$eq': series_identifier.vessel_part_id}  }).to_list(1000)
 
     debsonify_measurements(res)
 
@@ -161,19 +159,19 @@ async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIde
         m['part_id'] = m['metadata']['part_id']
         del m['metadata']
 
-    return FlightMeasurementSchema().load_list_safe(FlightMeasurement, res)
+    return [FlightMeasurement(**r) for r in res]
 
 async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Literal['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementDescriptor] ):
 
     match_stage = {
         '$match': {
             '_datetime': { '$gte': start, '$lt': end },
-            'metadata._flight_id': {'$eq': str(series_identifier._flight_id)}
+            'metadata._flight_id': {'$eq': str(series_identifier.flight_id)}
         }
     }
 
-    if series_identifier._vessel_part_id is not None:
-        match_stage['$match']['metadata.part_id'] = {'$eq': str(series_identifier._vessel_part_id)}
+    if series_identifier.vessel_part_id is not None:
+        match_stage['$match']['metadata.part_id'] = {'$eq': str(series_identifier.vessel_part_id)}
 
     group_stage = {
         '$group': {
@@ -207,11 +205,11 @@ async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesI
     debsonify_measurements(res)
     
     for m in res:
-        m['flight_id'] = series_identifier._flight_id
-        m['part_id'] = series_identifier._vessel_part_id
+        m['flight_id'] = series_identifier.flight_id
+        m['part_id'] = series_identifier.vessel_part_id
         m['start_date'] = m['start_date'].isoformat()
         m['end_date'] = m['end_date'].isoformat()
         
         # del m['metadata']
 
-    return FlightMeasurementAggregatedSchema(many=True).load(res)
+    return res

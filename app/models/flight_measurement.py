@@ -1,29 +1,17 @@
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from time import strftime
 from typing import Type, Union
 import uuid
-from marshmallow import Schema, fields, validate
-from helper.model_helper import make_safe_schema
+from pydantic import BaseModel, Field, create_model
 
-@dataclass
-class FlightMeasurementSeriesIdentifier:
+from app.helper.datetime_model import AwareDatetimeModel
+
+class FlightMeasurementSeriesIdentifier(BaseModel):
     
-    _flight_id: uuid.UUID
+    flight_id: uuid.UUID = Field(alias='_flight_id', alias_priority=1, default=None)
 
-    _vessel_part_id: uuid.UUID
+    vessel_part_id: uuid.UUID = Field(alias='_vessel_part_id', alias_priority=1, default=None)
 
-class FlightMeasurementSeriesIdentifierSchema(make_safe_schema(FlightMeasurementSeriesIdentifier)):
-    """
-    Identifies which time series the measurement belongs to
-    """
-
-    _flight_id = fields.UUID(required = True)
-
-    _vessel_part_id = fields.UUID(required = True)
-
-@dataclass
-class FlightMeasurementDescriptor:
+class FlightMeasurementDescriptor(BaseModel):
     """
     Describes a field in the measured data
     """
@@ -33,65 +21,19 @@ class FlightMeasurementDescriptor:
     type: str
     """The type of the that measurement. Can be a "string", "int" or a "float" """
 
-class FlightMeasurementDescriptorSchema(make_safe_schema(FlightMeasurementDescriptor)):
-    """
-    Describes a field in the measured data
-    """
-
-    name = fields.String()
-
-    type = fields.String(validate= validate.Regexp(r"(string)|(int)|(float)"))
-    """The type of the that measurement. Can be a "string", "int" or a "float" """
-
-@dataclass
-class FlightMeasurement:
+class FlightMeasurement(AwareDatetimeModel):
     """A single measurement relayed back by the model
     """
     
-    _datetime: datetime
+    datetime_value: datetime = Field(alias='_datetime', alias_priority=1, default=None)
     """The datetime the measurement is for (primary index)"""
 
-    measured_values: dict[str, Union[str, int, float]] = field(default_factory=dict)
+    measured_values: dict[str, Union[str, int, float]] = Field(default_factory=dict)
     """The measured values themselves"""
 
-    _id: Union[uuid.UUID, None] = None
+    id: Union[uuid.UUID, None] = Field(alias='_id', alias_priority=1, default=None)
 
     part_id: Union[uuid.UUID, None] = None
-    """Optional part id. Used to send the part over the network, not committed to database"""
-
-class FlightMeasurementSchema(make_safe_schema(FlightMeasurement)):
-    """A single measurement relayed back by the model
-    """
-
-    _id = fields.String()
-
-    _datetime = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
-    """The datetime the measurement is for (primary index)"""
-
-    measured_values = fields.Dict(keys = fields.Str(), values = fields.Raw())
-    """The measured values themselves"""
-
-    part_id = fields.UUID(optional=True, allow_none=True)
-    """Optional part id. Used to send the part over the network, not committed to database"""
-
-class FlightMeasurementAggregatedSchema(Schema):
-    """A single measurement relayed back by the model
-    """
-
-    _id = fields.Raw()
-
-    start_date = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
-    """The datetime the range starts"""
-
-    end_date = fields.AwareDateTime(required = True, default_timezone=timezone.utc)
-    """The datetime the range starts"""
-
-    measured_values = fields.Raw()
-    """The measured values themselves"""
-
-    flight_id = fields.UUID(optional=True, allow_none=True)
-
-    part_id = fields.UUID(optional=True, allow_none=True)
     """Optional part id. Used to send the part over the network, not committed to database"""
 
 def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementDescriptor]):
@@ -105,26 +47,24 @@ def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementDescriptor]):
 
     for schema in schemas:
         if schema.type == 'string':
-            res_types[schema.name] = fields.String(required=False, allow_none=True)
+            res_types[schema.name] = (str, ...)
         elif schema.type == 'int':
-            res_types[schema.name] = fields.Int(required=False, allow_none=True)
+            res_types[schema.name] = (int, ...)
         elif schema.type == 'float':
-            res_types[schema.name] = fields.Float(required=False, allow_none=True)
+            res_types[schema.name] = (float, ...)
         else:
             raise NotImplementedError(f'Schema type {schema.type} not supported')
         
-    # Create a new type with a random uuid as it's name
-    # Have it inherit from the schema class and implement the
-    # previously created fields
-    return type(str(uuid.uuid4()).upper(), (Schema, ), res_types)
+    return create_model(str(uuid.uuid4()).upper(), **res_types)
+        
 
-def getConcreteMeasurementSchema(schema: list[FlightMeasurementDescriptor]) -> Type[FlightMeasurementSchema]:
+def getConcreteMeasurementSchema(schema: list[FlightMeasurementDescriptor]) -> Type[FlightMeasurement]:
     """
     Creates a new FlightMeasurement schema based on the requested properties.
     Replaces the `FlightMeasurement.measured_values` with a nested schema
     which has the correct keys and value types for validation
     """
-    return type(str(uuid.uuid4()).upper(), (FlightMeasurementSchema, ), dict( measured_values = fields.Nested(getConcreteMeasuredValuesType(schema)) ))
-    
 
+    measurement_model = getConcreteMeasuredValuesType(schema)
 
+    return create_model(str(uuid.uuid4()).upper(), __base__ = FlightMeasurement, measured_values=(measurement_model, ...))

@@ -1,13 +1,12 @@
 import asyncio
 from logging import Logger
 from typing import Coroutine, cast
-from quart import current_app
 from socketio import Server
-from models.flight import FlightSchema
-from middleware.auth.requireAuth import socket_authenticated_only, socket_use_auth
-from blinker import signal
+from blinker import Signal
 
-from services.data_access.flight import get_flight_new_signal, get_flight_update_signal
+from app.middleware.auth.requireAuth import socket_authenticated_only, socket_use_auth
+from app.models.flight import Flight
+from app.services.data_access.flight import get_flight_new_signal, get_flight_update_signal
 
 flight_new_event = 'flights.new'
 flight_update_event = 'flights.update'
@@ -19,8 +18,8 @@ def make_on_new_flight(sio: Server):
 
     def on_new_flight(sender, **kw):
 
-        flight = kw['flight']
-        coroutine = sio.emit(flight_new_event, FlightSchema().dump(flight), to=get_flight_room())
+        flight: Flight = kw['flight']
+        coroutine = sio.emit(flight_new_event, flight.model_dump(by_alias=True), to=get_flight_room())
 
         asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
 
@@ -30,15 +29,15 @@ def make_on_update_flight(sio: Server):
 
     def on_update_flight(sender, **kw):
 
-        flight = kw['flight']
+        flight: Flight = kw['flight']
 
-        coroutine = sio.emit(flight_update_event, FlightSchema().dump(flight), to=get_flight_room())
+        coroutine = sio.emit(flight_update_event, flight.model_dump(by_alias=True), to=get_flight_room())
 
         asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
 
     return on_update_flight
 
-def init_flight_controller(sio: Server, logger: Logger):
+def init_flight_controller(sio: Server, logger: Logger | None):
 
     new_signal = get_flight_new_signal()
     update_signal = get_flight_update_signal()
@@ -48,7 +47,7 @@ def init_flight_controller(sio: Server, logger: Logger):
     update_signal.connect(make_on_update_flight(sio), weak=False)
 
     @sio.on('flights.subscribe')
-    @socket_use_auth
+    @socket_use_auth(sio)
     def subscribe(sid):
         """ Join a room to receive updates if flights are created/modified"""
     

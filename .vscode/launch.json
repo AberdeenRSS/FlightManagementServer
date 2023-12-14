@@ -5,6 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: FastAPI",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",
+                "--reload"
+            ],
+            "jinja": true,
+            "justMyCode": true
+        },
+        {
             "name": "Python: flask devlopment",
             "type": "python",
             "request": "launch",
@@ -23,7 +35,7 @@
             "request": "launch",
             "module": "pytest",
             "args": [
-              "${file}"
+                "${file}"
             ],
             "justMyCode": false
         }

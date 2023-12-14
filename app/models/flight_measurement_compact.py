@@ -1,57 +1,31 @@
-from dataclasses import dataclass, field
 import datetime
 from typing import Tuple, Union
 from uuid import UUID
+from pydantic import BaseModel, Field
 
-from marshmallow import fields
+from app.helper.datetime_model import AwareDatetimeModel
 
-from helper.model_helper import make_safe_schema
-
-
-
-@dataclass()
-class FlightMeasurementCompact: 
+class FlightMeasurementCompact(BaseModel): 
 
     part_id: Union[UUID, None]
 
     field_names: list[str]
 
-    measurements: list[Tuple[float, list[Union[str, int, float]]]] = field(default_factory=list)
+    measurements: list[Tuple[float, list[Union[str, int, float, None]]]] = Field(default_factory=list)
 
+MeasurementTypes = Union[str, int, float, None]
 
-class FlightMeasurementCompactSchema(make_safe_schema(FlightMeasurementCompact)):
-
-    part_id = fields.UUID(allow_none=True)
-
-    field_names = fields.List(fields.String)
-
-    measurements = fields.List(fields.Tuple((fields.Float, fields.List(fields.Raw(allow_none=True)))))
-
-
-@dataclass()
-class FlightMeasurementCompactDB():
+class FlightMeasurementCompactDB(AwareDatetimeModel):
 
     part_id: Union[UUID, None]
 
-    measurements: list[Tuple[float, list[Union[str, int, float, None]]]] = field(default_factory=list)
+    measurements: list[Tuple[float, list[MeasurementTypes]]] = Field(default_factory=list)
 
-    _start_time: datetime.datetime = datetime.datetime.fromtimestamp(0)
+    start_time: datetime.datetime = Field(alias='_start_time', alias_priority=1, default=datetime.datetime.fromtimestamp(0)) 
 
-    _end_time: datetime.datetime = datetime.datetime.fromtimestamp(0)
+    end_time: datetime.datetime = Field(alias='_end_time', alias_priority=1, default=datetime.datetime.fromtimestamp(0)) 
 
-    measurements_aggregated: dict[str, tuple[Union[str, int, float, None]]] = field(default_factory=dict)
-
-class FlightMeasurementCompactDBSchema(make_safe_schema(FlightMeasurementCompactDB)):
-
-    _start_time = fields.AwareDateTime(default_timezone=datetime.timezone.utc)
-
-    _end_time = fields.AwareDateTime(default_timezone=datetime.timezone.utc)
-
-    part_id = fields.UUID(allow_none=True)
-
-    measurements = fields.Raw()
-
-    measurements_aggregated = fields.Dict(fields.Str, fields.Tuple([fields.Raw(allow_none=True), fields.Raw(allow_none=True), fields.Raw(allow_none=True)]))
+    measurements_aggregated: dict[str, tuple[MeasurementTypes, MeasurementTypes, MeasurementTypes]] = Field(default_factory=dict)
 
 def to_compact_db(compact_measurement: dict):
 
@@ -89,7 +63,7 @@ def to_compact_db(compact_measurement: dict):
 
             i += 1
 
-    agg = dict[str, tuple]()
+    agg = dict[str, tuple[MeasurementTypes, MeasurementTypes, MeasurementTypes]]()
 
     for key, value in avg_values.items():
 

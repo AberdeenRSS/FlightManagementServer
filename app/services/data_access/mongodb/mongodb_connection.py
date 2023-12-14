@@ -1,6 +1,8 @@
-from typing import Any, Mapping
-from quart import current_app, g
+from functools import lru_cache
+from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+
+from app.config import get_settings
 
 connection_string = None
 
@@ -11,25 +13,10 @@ def get_db() -> AsyncIOMotorDatabase: # type: ignore
 
     # Case for when there is no global context available
     # e.g. during setup
-    if not g:
-        client = AsyncIOMotorClient(full_connection_string, uuidRepresentation='standard')
-        return client['rocketry']
+    client = AsyncIOMotorClient(full_connection_string, uuidRepresentation='standard')
+    return client['rocketry']
 
-    if 'db' not in g:
-        # Create a connection using MongoClient
-        client = AsyncIOMotorClient(full_connection_string, uuidRepresentation='standard')
-        g.db = client
-        
-    return g.db['rocketry']
-
-def close_db(e=None):
-    db = g.pop('db', None)
-
-    if db is not None:
-        db.close()
-
-def init_app(app):
+def init_app(app: FastAPI):
     global full_connection_string
-    connection_string = app.config.get('connection_string') or 'mongodb://localhost:27017' 
+    connection_string = get_settings().connection_string
     full_connection_string = f"{connection_string}/rocketDatabase1"
-    app.teardown_appcontext(close_db)

@@ -1,5 +1,5 @@
 from motor.core import AgnosticDatabase, AgnosticCollection
-from services.data_access.mongodb.mongodb_connection import get_db
+from ..mongodb.mongodb_connection import get_db
 from typing import Any, Callable, Coroutine
 from quart import current_app
 

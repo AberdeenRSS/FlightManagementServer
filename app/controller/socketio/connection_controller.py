@@ -1,11 +1,11 @@
 from logging import Logger
 from typing import Coroutine, cast
 from socketio import Server
-from middleware.auth.requireAuth import try_authenticate_socket
+from app.middleware.auth.requireAuth import try_authenticate_socket
 
-from services.auth.jwt_user_info import User, get_user_info
+from app.services.auth.jwt_user_info import UserInfo, get_socket_user_info
 
-def init_connection_controller(sio: Server, logger: Logger):
+def init_connection_controller(sio: Server, logger: Logger | None):
 
     @sio.event
     async def connect(sid, environ, auth):
@@ -14,11 +14,13 @@ def init_connection_controller(sio: Server, logger: Logger):
 
         if error_msg != None:
 
-            logger.critical(f'Client authentication failed: {error_msg}')
+            if logger is not None:
+                logger.critical(f'Client authentication failed: {error_msg}')
             await cast(Coroutine, sio.disconnect(sid))
 
             return False
 
-        user = cast(User, get_user_info(sid))
+        user = cast(UserInfo, get_socket_user_info(sid))
 
-        logger.info(f'Successfully established websocket connection {user.name} ({user._id}) ')
+        if logger is not None:
+            logger.info(f'Successfully established websocket connection {user.name} ({user._id}) ')

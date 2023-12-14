@@ -1,16 +1,14 @@
 from datetime import datetime
 from typing import Literal, Sequence, Union, cast
-from quart import current_app
+from uuid import UUID
 from blinker import NamedSignal, Namespace, signal
 from motor.core import AgnosticCollection, AgnosticDatabase
 from pymongo import ASCENDING, DESCENDING
 
-from models.flight_measurement import FlightMeasurement, FlightMeasurementAggregatedSchema, FlightMeasurementDescriptor, FlightMeasurementSchema, FlightMeasurementDescriptorSchema, FlightMeasurementSeriesIdentifier, FlightMeasurementSeriesIdentifierSchema
-from models.flight_measurement_compact import FlightMeasurementCompactDB, FlightMeasurementCompactDBSchema
-from services.data_access.common.collection_managment import get_or_init_collection
-from quart import current_app
+from app.models.flight_measurement import FlightMeasurement, FlightMeasurementDescriptor, FlightMeasurementSeriesIdentifier
+from app.models.flight_measurement_compact import FlightMeasurementCompactDB
+from app.services.data_access.common.collection_managment import get_or_init_collection
 from time import time
-import json
 
 #region Constants
 
@@ -131,7 +129,7 @@ async def get_or_init_flight_data_collection() -> AgnosticCollection:
 #endregion
 
 # Inserts new measured flight data
-async def insert_flight_data(measurements: list[FlightMeasurementCompactDB], flight_id: str):
+async def insert_flight_data(measurements: list[FlightMeasurementCompactDB], flight_id: UUID):
 
     insert_start_time = time()
 
@@ -139,10 +137,10 @@ async def insert_flight_data(measurements: list[FlightMeasurementCompactDB], fli
 
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
-    measurements_raw = FlightMeasurementCompactDBSchema().dump_list(measurements)
+    measurements_raw = [m.model_dump(by_alias=True) for m in measurements]
 
     for m in measurements_raw:
-        m['_start_time'] = datetime.fromisoformat(m['_start_time'])
+        m['_start_time'] = m['_start_time']
         m['metadata'] = {'_flight_id': flight_id, 'part_id': m['part_id']}
         del m['part_id']
 
@@ -154,23 +152,23 @@ async def insert_flight_data(measurements: list[FlightMeasurementCompactDB], fli
     preparation_time = write_start_time - insert_start_time
     db_time = after_write_time - write_start_time
 
-    current_app.logger.debug(f'Pushed {len(measurements)} compact measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
+    # current_app.logger.debug(f'Pushed {len(measurements)} compact measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
 
     s = cast(NamedSignal, signal(NEW_FLIGHT_DATA_COMPACT))
 
-    s.send(current_app._get_current_object(), flight_id=flight_id, measurements = measurements) # type: ignore
+    s.send(None, flight_id=flight_id, measurements = measurements) # type: ignore
 
 async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurement]:
     collection = await get_or_init_flight_data_collection()
 
     # Get all measurements in the date range
-    res = await collection.find({'_start_time': { '$gte': start, '$lt': end }, 'metadata._flight_id': {'$eq': str(series_identifier._flight_id)}, 'metadata.part_id': {'$eq': str(series_identifier._vessel_part_id)}  }).to_list(1000)
+    res = await collection.find({'_start_time': { '$gte': start, '$lt': end }, 'metadata._flight_id': {'$eq': str(series_identifier.flight_id)}, 'metadata.part_id': {'$eq': str(series_identifier.vessel_part_id)}  }).to_list(1000)
 
     debsonify_measurements(res)
 
     for m in res:
         del m['_id']
-        m['part_id'] = series_identifier._vessel_part_id
+        m['part_id'] = series_identifier.vessel_part_id
         
         if isinstance(m['_start_time'], datetime):
             m['_start_time'] = m['_start_time'].isoformat()
@@ -179,20 +177,19 @@ async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIde
 
         del m['metadata']
 
-
-    return FlightMeasurementCompactDBSchema().load_list_safe(FlightMeasurement, res)
+    return [FlightMeasurement(**r) for r in res]
 
 async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Literal['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementDescriptor] ):
 
     match_stage = {
         '$match': {
             '_start_time': { '$gte': start, '$lt': end },
-            'metadata._flight_id': {'$eq': str(series_identifier._flight_id)}
+            'metadata._flight_id': {'$eq': str(series_identifier.flight_id)}
         }
     }
 
-    if series_identifier._vessel_part_id is not None:
-        match_stage['$match']['metadata.part_id'] = {'$eq': str(series_identifier._vessel_part_id)}
+    if series_identifier.vessel_part_id is not None:
+        match_stage['$match']['metadata.part_id'] = {'$eq': str(series_identifier.vessel_part_id)}
 
     group_stage = {
         '$group': {
@@ -227,10 +224,10 @@ async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesI
     
     for m in res:
         del m['_id']
-        m['part_id'] = series_identifier._vessel_part_id
+        m['part_id'] = series_identifier.vessel_part_id
         m['_start_time'] = m['_start_time'].isoformat()
         m['_end_time'] = m['_end_time'].isoformat()
         
         # del m['metadata']
-
-    return FlightMeasurementCompactDBSchema(many=True).load(res)
+    
+    return [FlightMeasurementCompactDB(**r) for r in res]

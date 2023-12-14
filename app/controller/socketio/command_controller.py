@@ -1,18 +1,17 @@
 import asyncio
 from logging import Logger
 from typing import Coroutine, cast
+from uuid import UUID
 from socketio import Server
-from quart import current_app
-
-from middleware.auth.requireAuth import role_required_socket, socket_authenticated_only, socket_use_auth
-from models.command import CommandSchema
-from services.auth.jwt_user_info import get_user_info
-from services.auth.permission_service import has_flight_permission
-from services.data_access.command import get_commands_new_signal, get_command_update_signal
 from blinker import signal
 
-from services.data_access.flight import get_flight
-from services.data_access.vessel import get_vessel
+from app.middleware.auth.requireAuth import role_required_socket, socket_authenticated_only, socket_use_auth
+from app.models.command import Command
+from app.services.auth.jwt_user_info import get_socket_user_info, require_socket_user_info
+from app.services.auth.permission_service import has_flight_permission
+from app.services.data_access.command import get_commands_new_signal, get_command_update_signal
+from app.services.data_access.flight import get_flight
+from app.services.data_access.vessel import get_vessel
 
 new_command_event = 'command.new'
 update_command_event = 'command.update'
@@ -31,11 +30,11 @@ def make_on_new_command(sio: Server):
         try:
 
             flight_id = kw['flight_id']
-            commands = kw['commands']
+            commands: list[Command] = kw['commands']
             from_client = kw['from_client']
 
             msg = {
-                'commands': CommandSchema(many=True).dump_list(commands),
+                'commands': [c.model_dump(by_alias=True) for c in commands],
                 'flight_id': flight_id
             }
 
@@ -51,7 +50,8 @@ def make_on_new_command(sio: Server):
 
         except Exception as e:
 
-            current_app.logger.error(f'Error sending command {e}')
+            # current_app.logger.error(f'Error sending command {e}')
+            pass
 
 
     return on_new_command
@@ -63,11 +63,11 @@ def make_on_update_command(sio: Server):
         try:
 
             flight_id = kw['flight_id']
-            commands = kw['commands']
+            commands: list[Command] = kw['commands']
             from_client = kw['from_client']
 
             msg = {
-                'commands': CommandSchema().dump_list(commands),
+                'commands': [c.model_dump(by_alias=True) for c in commands],
                 'flight_id': flight_id
             }
 
@@ -77,11 +77,12 @@ def make_on_update_command(sio: Server):
             asyncio.get_event_loop().create_task(cast(Coroutine, coroutine))
         except Exception as e:
 
-            current_app.logger.error(f'Error sending command: {e}')
+            # current_app.logger.error(f'Error sending command: {e}')
+            pass
 
     return on_update_command
 
-def init_command_controller(sio: Server, logger: Logger):
+def init_command_controller(sio: Server, logger: Logger | None):
 
     new_signal = get_commands_new_signal()
     update_signal = get_command_update_signal()
@@ -91,21 +92,23 @@ def init_command_controller(sio: Server, logger: Logger):
     update_signal.connect(make_on_update_command(sio), weak=False)
 
     @sio.on('command.subscribe_as_client')
-    @socket_use_auth
+    @socket_use_auth(sio)
     async def subscribe_as_client(sid, flight_id):
         """ Join a room to receive all commands send for a specific flight"""
 
-        flight = await get_flight(flight_id)
+        user = require_socket_user_info(sid)
+
+        flight = await get_flight(UUID(flight_id))
 
         if flight is None:
             return 'Flight does not exist', 404
     
-        vessel = await get_vessel(str(flight._vessel_id))
+        vessel = await get_vessel(flight.vessel_id)
 
         if vessel is None:
             return 'Vessel does not exist', 404
         
-        if not has_flight_permission(flight, vessel, 'read'):
+        if not has_flight_permission(flight, vessel, 'read', user):
             return 'You don\'t have the required permission to access the flight', 403
         
         room = get_command_room_clients(flight_id)
@@ -113,7 +116,7 @@ def init_command_controller(sio: Server, logger: Logger):
         sio.enter_room(sid, room)
 
     @sio.on('command.subscribe_as_vessel')
-    @socket_authenticated_only
+    @socket_authenticated_only(sio)
     @role_required_socket('vessel')
     def subscribe_as_vessel(sid, flight_id):
         """ Join a room to receive all commands send for a specific flight"""

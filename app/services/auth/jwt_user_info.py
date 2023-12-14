@@ -1,7 +1,6 @@
 from typing import Any, Union
-from quart import g, request
 
-class User:
+class UserInfo:
     # A unique id of the user
     _id: str
 
@@ -11,36 +10,43 @@ class User:
 
     token: dict[str, Any]
 
-socket_users = dict[str, User]()
-    
-def set_user_info(raw_token: dict[str, Any], sid: Union[str, None] = None):
+socket_users = dict[str, UserInfo]()
 
-    global socket_users
-
-    user = User()
+def user_from_token(raw_token: dict) -> UserInfo:
+    user = UserInfo()
     user._id = raw_token['uid']
     user.name = raw_token.get('name')
     user.token = raw_token
     user.roles = raw_token.get('roles') or list()
 
-    if sid is not None:  # type: ignore
-        socket_users[sid] = user # type: ignore
-    else:
-        g.rss_jwt_user = user
+    return user
+    
+def set_socket_user_info(user: UserInfo, sid: str):
 
-def get_user_info(sid: Union[str,None]=None) -> Union[User, None]:
+    global socket_users
+
+    socket_users[sid] = user
+
+def get_socket_user_info(sid: str) -> Union[UserInfo, None]:
     """
     Retrieves the user information from the global context if available
     """
 
     global socket_users
 
-    if sid is not None:
-        if sid in socket_users:
-            return socket_users[sid]
+    if sid is None:
         return None
-
-    if 'rss_jwt_user' in g:
-        return g.rss_jwt_user
-   
+    
+    if sid in socket_users:
+        return socket_users[sid]
+    
     return None
+
+def require_socket_user_info(sid: str) -> UserInfo:
+
+    user = get_socket_user_info(sid)
+
+    if user is None:
+        raise Exception('Unauthorized')
+    
+    return user

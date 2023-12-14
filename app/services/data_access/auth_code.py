@@ -1,6 +1,6 @@
 from motor.core import AgnosticCollection
-from models.authorization_code import AuthorizationCode, AuthorizationCodeSchema
-from services.data_access.common.collection_managment import get_or_init_collection
+from ...models.authorization_code import AuthorizationCode
+from ...services.data_access.common.collection_managment import get_or_init_collection
 from motor.core import AgnosticDatabase, AgnosticCollection
 
 
@@ -20,7 +20,7 @@ async def create_auth_code(code: AuthorizationCode):
 
     collection = await get_or_init_auth_code_collection()
 
-    await collection.replace_one({'_id': str(code._id)}, AuthorizationCodeSchema().dump_single(code), upsert = True) # type: ignore
+    await collection.replace_one({'_id': code.id}, code.model_dump(by_alias=True), upsert = True) # type: ignore
 
 async def get_code(id: str):
     collection = await get_or_init_auth_code_collection()
@@ -30,7 +30,7 @@ async def get_code(id: str):
     if len(raw) < 1:
         return None
     
-    return AuthorizationCodeSchema().load_safe(AuthorizationCode, raw[0])
+    return AuthorizationCode(**raw[0])
 
 async def get_auth_codes_for_user(user_id: str):
 
@@ -38,7 +38,7 @@ async def get_auth_codes_for_user(user_id: str):
 
     raw = await collection.find({'corresponding_user': user_id}).to_list(1000)
 
-    return AuthorizationCodeSchema().load_list_safe(AuthorizationCode, raw)
+    return [AuthorizationCode(**r) for r in raw]
 
 async def delete_code(id: str):
     collection = await get_or_init_auth_code_collection()

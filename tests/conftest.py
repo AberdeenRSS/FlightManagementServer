@@ -3,54 +3,32 @@ import datetime
 from typing import Any, AsyncIterator, Awaitable, Coroutine, List, Optional
 import os
 from uuid import UUID, uuid4
+from fastapi.testclient import TestClient
 import pytest
 from quart import Quart
 import socketio
 import uvicorn
-from main import create_app
+from app.main import app
 from socketio import ASGIApp
 from socketio.asyncio_client import AsyncClient
-from models.authorization_code import AuthorizationCode, generate_auth_code
-from models.user import User
-from services.data_access.auth_code import create_auth_code
+from app.models.authorization_code import AuthorizationCode, generate_auth_code
+from app.models.user import User
+from app.services.data_access.auth_code import create_auth_code
 
-from services.data_access.user import create_or_update_user, get_user
+from app.services.data_access.user import create_or_update_user, get_user
 from tests.auth_helper import create_api_user, create_auth_code_for_user
 
 PORT = 8000
 LISTENING_IF = "127.0.0.1"
 BASE_URL = f"http://{LISTENING_IF}:{PORT}"
 
-quart_server, socket_io = create_app()
+# quart_server, socket_io = create_app()
 
-quart_server.config['connection_string'] = 'mongodb://localhost:27017'
+# quart_server.config['connection_string'] = 'mongodb://localhost:27017'
 
-app = socketio.ASGIApp(socket_io, quart_server)
+# app = socketio.ASGIApp(app, quart_server)
 
 TEST_USER_UUID = UUID('ff268568-5829-4bf4-90d1-a865e36d49a3')
-
-class UvicornTestServer(uvicorn.Server):
-    def __init__(self, app: ASGIApp = app, host: str = LISTENING_IF, port: int = PORT):
-        self._startup_done = asyncio.Event()
-        self._serve_task: Optional[Awaitable[Any]] = None
-        super().__init__(config=uvicorn.Config(app, host=host, port=port))
-
-    async def startup(self) -> None:
-        """Override uvicorn startup"""
-        await super().startup()
-        self.config.setup_event_loop()
-        self._startup_done.set()
-
-    async def start_up(self) -> None:
-        """Start up server asynchronously"""
-        self._serve_task = asyncio.create_task(self.serve())
-        await self._startup_done.wait()
-
-    async def tear_down(self) -> None:
-        """Shut down server asynchronously"""
-        self.should_exit = True
-        if self._serve_task:
-            await self._serve_task
 
 
 @pytest.fixture(scope="session")
@@ -59,17 +37,10 @@ def event_loop():
     yield loop
     loop.close()
 
-@pytest.fixture(scope="session")
-def quart():
-    return quart_server
-
 @pytest.fixture(autouse=True, scope="session")
-async def startup_and_shutdown_server():
-    server = UvicornTestServer()
-    await server.start_up()
-    yield
-    await server.tear_down()
-
+def test_client():
+    client = TestClient(app)
+    return client
 
 @pytest.fixture(scope="session")
 async def client() -> AsyncIterator[AsyncClient]:
@@ -97,16 +68,14 @@ async def test_user_auth_code(test_user: Coroutine[User, None, User]):
 
     code = await create_auth_code_for_user(user)
 
-    return code._id
+    return code.id
 
 @pytest.fixture(scope="function")
-async def test_user_bearer(quart: Quart, test_user_auth_code: Coroutine[User, None, User]):
+async def test_user_bearer(test_client: TestClient, test_user_auth_code: Coroutine[User, None, User]):
     user_code = await test_user_auth_code
     assert user_code is not None
 
-    client = quart.test_client()
+    token_response = test_client.post('/auth/authorization_code_flow', data=user_code)
 
-    token_response = await client.post('/auth/authorization_code_flow', data=user_code)
-
-    return (await token_response.json)['token']
+    return token_response.json()['token']
 

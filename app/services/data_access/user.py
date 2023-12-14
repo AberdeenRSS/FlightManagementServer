@@ -1,13 +1,8 @@
-import asyncio
-from datetime import datetime
 from typing import Any, Collection, Coroutine, Union, cast
 from uuid import UUID
-from quart import current_app
-from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCollection
 from motor.core import AgnosticDatabase, AgnosticCollection
-
-from models.user import User, UserSchema
-from services.data_access.common.collection_managment import get_or_init_collection
+from ...models.user import User
+from ...services.data_access.common.collection_managment import get_or_init_collection
 
 #region Signals
 
@@ -31,15 +26,15 @@ async def get_or_init_user_collection():
 async def create_or_update_user(user: User):
 
     collection = await get_or_init_user_collection()
-    result = await collection.replace_one({'_id': str(user._id)}, UserSchema().dump_single(user), upsert = True) # type: ignore
+    result = await collection.replace_one({'_id': user.id}, user.model_dump(by_alias=True), upsert = True) # type: ignore
 
 async def get_user(id: UUID):
     collection = await get_or_init_user_collection()
 
-    raw = await collection.find({'_id': str(id)}).to_list(1) # type: ignore
+    raw = await collection.find({'_id': id}).to_list(1) # type: ignore
 
     if len(raw) > 0:
-        return UserSchema().load_safe(User, raw[0])
+        return User(**raw[0])
     
     return None
 
@@ -51,7 +46,7 @@ async def get_users(ids: Collection[UUID]) -> list[User]:
 
     raw = await collection.find({'_id': {'$in': string_ids }}).to_list(1000)
 
-    return UserSchema().load_list_safe(User, raw)
+    return [User(**r) for r in raw]
 
 async def get_user_by_unique_name(name: str):
     collection = await get_or_init_user_collection()
@@ -59,7 +54,7 @@ async def get_user_by_unique_name(name: str):
     raw = await collection.find({'unique_name': name}).to_list(1) # type: ignore
 
     if len(raw) > 0:
-        return UserSchema().load_safe(User, raw[0])
+        return User(**raw[0])
     
     return None
 
@@ -68,4 +63,4 @@ async def get_users_by_name(name: str):
 
     raw = await collection.find({'name': name}).to_list(100) # type: ignore
 
-    return UserSchema().load_list_safe(User, raw)
+    return [User(**r) for r in raw]

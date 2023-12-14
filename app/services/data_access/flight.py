@@ -1,11 +1,11 @@
 from typing import Union, cast
+from uuid import UUID
 
 from blinker import NamedSignal, Namespace
-from quart import current_app
 from motor.core import AgnosticCollection
 
 from .mongodb.mongodb_connection import get_db
-from models.flight import Flight, FlightSchema
+from app.models.flight import Flight
 
 FLIGHT_NEW = 'FLIGHT_NEW'
 FLIGHT_UPDATE = 'FLIGHT_UPDATE'
@@ -25,31 +25,31 @@ def get_flight_collection() -> AgnosticCollection:
 # Creates or updates the vessel and returns the value written to the database
 async def create_or_update_flight(flight: Flight) -> Flight:
     collection = get_flight_collection()
-    result = await collection.replace_one({'_id': str(flight._id)}, FlightSchema().dump_single(flight), upsert = True) # type: ignore
+    result = await collection.replace_one({'_id': flight.id}, flight.model_dump(by_alias=True), upsert = True) # type: ignore
 
     if result.upserted_id is not None:
-        get_flight_update_signal().send(current_app._get_current_object(), flight = flight)  # type: ignore
+        get_flight_update_signal().send(None, flight = flight)  # type: ignore
     else:
-        get_flight_new_signal().send(current_app._get_current_object(), flight = flight)  # type: ignore
+        get_flight_new_signal().send(None, flight = flight)  # type: ignore
 
     return flight
 
-async def get_all_flights_for_vessels(_vessel_id: str):
+async def get_all_flights_for_vessels(_vessel_id: UUID):
     collection = get_flight_collection()
-    raw = await collection.find({'_vessel_id': str(_vessel_id) }).to_list(1000) # type: ignore
-    return FlightSchema().load_list_safe(Flight, raw)
+    raw = await collection.find({'_vessel_id': _vessel_id }).to_list(1000) # type: ignore
+    return [Flight(**r) for r in raw]
 
-async def get_all_flights_for_vessels_by_name(_vessel_id: str, name: str):
+async def get_all_flights_for_vessels_by_name(_vessel_id: UUID, name: str):
     collection = get_flight_collection()
-    raw = await collection.find({'_vessel_id': str(_vessel_id), 'name': name }).to_list(1000) # type: ignore
-    return FlightSchema().load_list_safe(Flight, raw)
+    raw = await collection.find({'_vessel_id': _vessel_id, 'name': name }).to_list(1000) # type: ignore
+    return [Flight(**r) for r in raw]
 
-async def get_flight(_id: str) -> Union[Flight, None]:
+async def get_flight(_id: UUID) -> Union[Flight, None]:
     collection = get_flight_collection()
     raw = await collection.find({'_id': _id}).to_list(1000) # type: ignore
 
     if len(raw) > 0:
-        return FlightSchema().load_safe(Flight, raw[0])
+        return Flight(**raw[0])
 
     return None
 

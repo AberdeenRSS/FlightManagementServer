@@ -1,102 +1,71 @@
-from typing import cast
-from quart import Blueprint
-from quart import request, flash, g, jsonify
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException
 from quart_schema import tag
-from middleware.auth.requireAuth import auth_required, role_required, use_auth
-from uuid import uuid4
-from datetime import datetime, timedelta
-
-from flasgger import swag_from
-
-from models.flight import Flight, FlightSchema, FLIGHT_DEFAULT_HEAD_TIME
-from services.auth.jwt_user_info import User, get_user_info
-from services.auth.permission_service import has_flight_permission, modify_flight_permission
-from services.data_access.flight import create_or_update_flight, get_all_flights_for_vessels, get_all_flights_for_vessels_by_name, get_flight
-from services.data_access.user import get_user_by_unique_name
-from services.data_access.vessel import get_vessel 
+from uuid import UUID, uuid4
+from datetime import datetime, timezone
+from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, user_optional, user_required, verify_role
+from app.models.flight import Flight, FLIGHT_DEFAULT_HEAD_TIME
+from app.services.auth.jwt_user_info import UserInfo, get_socket_user_info
+from app.services.auth.permission_service import has_flight_permission, modify_flight_permission
+from app.services.data_access.flight import create_or_update_flight, get_all_flights_for_vessels, get_all_flights_for_vessels_by_name, get_flight
+from app.services.data_access.user import get_user_by_unique_name
+from app.services.data_access.vessel import get_vessel 
 
 
-flight_controller = Blueprint('flight', __name__, url_prefix='/flight')
+flight_controller = APIRouter(
+    prefix="/flight",
+    tags=["flight"],
+    dependencies=[],
+)
 
 # Method for a vessel to register
-@flight_controller.route("/create", methods = ['POST'])
-@auth_required
-@role_required('vessel')
-async def create_flight():
+@flight_controller.post("/create")
+async def create_flight(flight: Flight, user: AuthRequired) -> Flight:
     """
     Creates a flight
-    ---
-    parameters:
-      - name: 'body'
-        in: 'body'
-        description: 'Json object containing information about the flight that are supposed to be created'
-        schema:
-          $ref: "#/definitions/Flight"
-    responses:
-      200:
-        description: The flight how it has been saved in the database
-        schema:
-          $ref: "#/definitions/Flight"
-      400:
-        description: Returned if the vessel does not exist that the flight is created for
-      401: 
-        description: Returned if the user creating the vessel is not a vessel themselves
     """
 
-    flight = FlightSchema().load_safe(Flight, await request.get_json(), partial=True)
+    verify_role(user, 'vessel')
 
     # Create a new random uuid for the flight
     flight._id = uuid4()
 
     flight.start = datetime.utcnow()
 
+    flight.start = flight.start.replace(tzinfo=timezone.utc)
+
     flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
 
+    flight.end = flight.end.replace(tzinfo=timezone.utc)
+
     # Load the vessel to ensure it exists and to get its current version
-    vessel = await get_vessel(str(flight._vessel_id))
+    vessel = await get_vessel(flight.vessel_id)
 
     if vessel is None:
-        return f'Vessel {flight._vessel_id} does not exist yet. Please create the vessel before creating a flight for it', 400
+        raise HTTPException(400, f'Vessel {flight.vessel_id} does not exist yet. Please create the vessel before creating a flight for it')
         
-    flight._vessel_version = vessel._version
+    flight.vessel_version = vessel.version
 
     acc = await create_or_update_flight(flight)
 
-    return FlightSchema().dumps(acc)
+    return acc
 
-@flight_controller.route("/get_all/<vessel_id>", methods = ['GET'])
-@tag(['flight'])
-@use_auth
-async def get_all(vessel_id):
+@flight_controller.get("/get_all/{vessel_id}")
+async def get_all(vessel_id: UUID, user: AuthOptional) -> list[Flight]:
     """
     Fetches all flights that the passed vessel ever performed
-    ---
-    parameters:
-      - name: vessel_id
-        required: true
-        in: path
-        type: string
-        description: The id of the vessel to get the flights for
-    responses:
-      200:
-        description: All flights
-        schema:
-          type: array
-          items:
-            $ref: "#/definitions/Flight"
     """
 
     vessel = await get_vessel(vessel_id)
 
     if vessel is None:
-        return 'Vessel does not exist', 404
+        raise HTTPException(400, 'Vessel does not exist')
 
-    flights = await get_all_flights_for_vessels(str(vessel_id))
-    return FlightSchema(many=True).dumps([f for f in flights if has_flight_permission(f, vessel, 'view')])
+    flights = await get_all_flights_for_vessels(vessel_id)
+    return [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
 
-@flight_controller.route("/get_by_name/<vessel_id>/<name>", methods = ['GET'])
-@use_auth
-async def get_by_name(vessel_id, name):
+@flight_controller.get("/get_by_name/{vessel_id}/{name}")
+async def get_by_name(vessel_id: UUID, name: str, user: AuthOptional) -> list[Flight]:
     '''
     Fetches all flights with the specified name
     '''
@@ -104,35 +73,34 @@ async def get_by_name(vessel_id, name):
     vessel = await get_vessel(vessel_id)
 
     if vessel is None:
-        return 'Vessel does not exist', 404
+        raise HTTPException(400, 'Vessel does not exist')
     
-    flights = await get_all_flights_for_vessels_by_name(str(vessel_id), name)
-    return FlightSchema(many=True).dumps([f for f in flights if has_flight_permission(f, vessel, 'view')])
+    flights = await get_all_flights_for_vessels_by_name(vessel_id, name)
+    return [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
 
-@flight_controller.route('/set_permission/<flight_id>/<unique_user_name>/<permission>')
-@use_auth
-async def set_permission(flight_id: str, unique_user_name: str, permission: str):
+@flight_controller.post('/set_permission/{flight_id}/{unique_user_name}/{permission}')
+async def set_permission(flight_id: UUID, unique_user_name: str, permission: str, user: AuthOptional):
 
     flight = await get_flight(flight_id)
 
     if flight is None:
-        return 'Flight does not exist', 404
+        raise HTTPException(404, 'Flight does not exist')
     
-    vessel = await get_vessel(str(flight._vessel_id))
+    vessel = await get_vessel(flight.vessel_id)
 
     if vessel is None:
-        return 'Vessel does not exist', 404
+        raise HTTPException(404, 'Vessel does not exist')
     
-    if not has_flight_permission(flight, vessel, 'owner'):
-        return 'You don\'t have the required permission to access the flight', 403
+    if not has_flight_permission(flight, vessel, 'owner', user):
+        raise HTTPException(403, 'You don\'t have the required permission to access the flight')
   
     other_user = await get_user_by_unique_name(unique_user_name)
 
     if other_user is None:
-        return 'User you are trying to give permission to does not exist', 400
+        raise HTTPException(404, 'User you are trying to give permission to does not exist')
     
-    modify_flight_permission(flight, permission, other_user._id)
+    modify_flight_permission(flight, permission, other_user.id)
 
     await create_or_update_flight(flight)
 
-    return 'success', 200
+    return 'success'
