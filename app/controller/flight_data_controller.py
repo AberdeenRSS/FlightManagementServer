@@ -107,10 +107,10 @@ async def get_aggregated(flight_id: uuid.UUID, vessel_part: uuid.UUID, resolutio
 
     # If the part is not part of this flight, there are no
     # values available
-    if vessel_part not in measured_parts:
+    if str(vessel_part) not in measured_parts:
         return list()
     
-    measurement_schema = measured_parts[vessel_part]
+    measurement_schema = measured_parts[str(vessel_part)]
     
     values = await get_aggregated_flight_data_compact(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end), resolution, measurement_schema) # type: ignore
 
@@ -146,7 +146,7 @@ async def getRange(flight_id: uuid.UUID, vessel_part: uuid.UUID, start: str, end
 
     # If the part is not part of this flight, there are no
     # values available
-    if vessel_part not in measured_parts:
+    if str(vessel_part) not in measured_parts:
         return list()
     
     values = await get_flight_data_in_range(series_identifier, datetime.fromisoformat(start), datetime.fromisoformat(end))

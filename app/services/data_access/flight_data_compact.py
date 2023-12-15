@@ -162,7 +162,7 @@ async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIde
     collection = await get_or_init_flight_data_collection()
 
     # Get all measurements in the date range
-    res = await collection.find({'_start_time': { '$gte': start, '$lt': end }, 'metadata._flight_id': {'$eq': str(series_identifier.flight_id)}, 'metadata.part_id': {'$eq': str(series_identifier.vessel_part_id)}  }).to_list(1000)
+    res = await collection.find({'_start_time': { '$gte': start, '$lt': end }, 'metadata._flight_id': {'$eq': series_identifier.flight_id}, 'metadata.part_id': {'$eq': series_identifier.vessel_part_id}  }).to_list(1000)
 
     debsonify_measurements(res)
 
@@ -184,12 +184,12 @@ async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesI
     match_stage = {
         '$match': {
             '_start_time': { '$gte': start, '$lt': end },
-            'metadata._flight_id': {'$eq': str(series_identifier.flight_id)}
+            'metadata._flight_id': {'$eq': series_identifier.flight_id}
         }
     }
 
     if series_identifier.vessel_part_id is not None:
-        match_stage['$match']['metadata.part_id'] = {'$eq': str(series_identifier.vessel_part_id)}
+        match_stage['$match']['metadata.part_id'] = {'$eq': series_identifier.vessel_part_id}
 
     group_stage = {
         '$group': {
