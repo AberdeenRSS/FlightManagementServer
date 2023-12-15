@@ -71,6 +71,8 @@ async def authorization_code_flow(request: Request) -> TokenPair:
 
     data = str(await request.body(), encoding='utf-8')
 
+    data = data.replace('\n', '').replace('\r', '').replace(' ', '')
+
     print(f'Using token: {data}')
 
     token = await get_code(data)
