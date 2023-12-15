@@ -9,7 +9,7 @@ from ...models.authorization_code import AuthorizationCode, generate_auth_code
 from ...models.user import User, hash_password
 
 ISSUER = 'rss-flight-server'
-LIFE_SPAN = 1800
+LIFE_SPAN = 60*60*24
 LIFE_SPAN_REFRESH = 60*60*24*30
 
 @lru_cache
