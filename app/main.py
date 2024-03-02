@@ -1,3 +1,4 @@
+import gzip
 from app.controller.auth_controller import auth_controller
 from app.controller.command_controller import command_controller
 from app.controller.socketio.init import init_socket_io_controller
@@ -10,6 +11,29 @@ from app.services.data_access.mongodb.mongodb_connection import init_app
 from fastapi import FastAPI
 import socketio
 from fastapi.middleware.cors import CORSMiddleware
+
+from starlette.types import Message
+from starlette.requests import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class GZipedMiddleware(BaseHTTPMiddleware):
+    async def set_body(self, request: Request):
+        receive_ = await request._receive()
+        if "gzip" in request.headers.getlist("Content-Encoding"):
+            body = receive_.get('body')
+            if isinstance(body, bytes):
+                data = gzip.decompress(body)
+            receive_['body'] = data
+
+        async def receive() -> Message:
+            return receive_
+
+        request._receive = receive                
+
+    async def dispatch(self, request, call_next):
+        await self.set_body(request)        
+        response = await call_next(request)                
+        return response
 
 def socketio_mount(
     app: FastAPI,
@@ -41,6 +65,7 @@ def socketio_mount(
 
 # Init fast api
 app = FastAPI()
+app.add_middleware(GZipedMiddleware)
 
 init_app(app)
 
