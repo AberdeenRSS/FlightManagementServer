@@ -34,6 +34,9 @@ async def create_or_update_vessel(vessel: Vessel) -> Vessel:
         # Put the versions equal to ensure comparison works
         vessel.version = old_vessel.version
 
+        # Use the name already in the DB it is the one the user set up
+        vessel.name = old_vessel.name
+
         # Compare the two vessels, if they are equal don't update
         # the database and don't increase the version
         if old_vessel.model_dump_json() == vessel.model_dump_json():

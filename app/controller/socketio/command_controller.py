@@ -113,7 +113,7 @@ def init_command_controller(sio: Server, logger: Logger | None):
         
         room = get_command_room_clients(flight_id)
 
-        sio.enter_room(sid, room)
+        await sio.enter_room(sid, room) # type: ignore
 
     @sio.on('command.subscribe_as_vessel')
     @socket_authenticated_only(sio)

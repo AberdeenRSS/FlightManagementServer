@@ -1,14 +1,16 @@
 
 from datetime import datetime, timezone
+from io import BytesIO
 import math
 import time
 from typing import Iterable, cast
 import uuid
 from itertools import groupby
-from fastapi import APIRouter, HTTPException
+from app.helper.measurement_binary_helper import parse_binary_measurements
+from fastapi import APIRouter, HTTPException, Request
 from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, verify_role
 from app.models.flight_measurement import FlightMeasurement, FlightMeasurementSeriesIdentifier, getConcreteMeasurementSchema
-from app.models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME
+from app.models.flight import FLIGHT_DEFAULT_HEAD_TIME, FLIGHT_MINIMUM_HEAD_TIME, Flight
 from app.models.flight_measurement_compact import FlightMeasurementCompact, FlightMeasurementCompactDB, to_compact_db
 from app.services.auth.permission_service import has_flight_permission
 from app.services.data_access.flight import get_flight, create_or_update_flight
@@ -21,6 +23,60 @@ flight_data_controller = APIRouter(
     tags=["flight_data"],
     dependencies=[],
 )
+
+
+@flight_data_controller.post("/report_binary/{flight_id}")
+async def report_binary(flight_id: uuid.UUID, request: Request, user: AuthRequired):
+    """
+    Method to report flight data for multiple parts
+    This is meant to be called by a vessel.
+    The vessel needs to tell the server which flight this data is for as well as
+    which part of the vessel the data is for.
+    ---
+    Most efficient variant of the method allowing transmitting in raw binary format
+    """
+
+    verify_role(user, 'vessel')
+
+    measurements = await request.body()
+
+    flight = await get_flight(flight_id)
+
+    if flight is None:
+        raise HTTPException(404, f'Flight {flight_id} does not exist')
+    
+    # parsed = FlightMeasurementCompactSchema().load_list_safe(FlightMeasurementCompact, parsed_data)
+
+    after_parse_time = time.time()
+
+    measured_parts = flight.measured_parts
+
+    # In case the end of the flight is coming near extend it
+    if flight.end is not None and (flight.end.timestamp() - datetime.now(timezone.utc).timestamp()) < FLIGHT_MINIMUM_HEAD_TIME.total_seconds():
+        flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
+        flight.end = flight.end.replace(tzinfo=timezone.utc)
+        await create_or_update_flight(flight)
+
+    db_measurements = list[FlightMeasurementCompactDB]()
+
+    parsed_measurements = parse_binary_measurements(BytesIO(measurements), flight)
+
+    for m in parsed_measurements:
+        
+        if str(m.part_id) not in measured_parts:
+            return f'A measurement for part {m.part_id} cannot be stored, because the part was previously not specified to be measured in the flight', 400
+
+        db_measurements.append(to_compact_db(m.model_dump(by_alias=True)))
+
+    after_to_compact_time = time.time()
+       
+    await insert_flight_data_compact(db_measurements, flight_id)
+
+    after_db_time = time.time()
+
+    return 'success'
+
+
 
 @flight_data_controller.post("/report_compact/{flight_id}")
 async def report_flight_data_compact(flight_id: uuid.UUID, measurements: list[FlightMeasurementCompact], user: AuthRequired):

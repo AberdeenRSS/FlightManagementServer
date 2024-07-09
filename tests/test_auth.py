@@ -2,7 +2,6 @@ from typing import Coroutine
 from uuid import uuid4
 from fastapi.testclient import TestClient
 import pytest
-from quart import Quart
 
 
 @pytest.mark.asyncio

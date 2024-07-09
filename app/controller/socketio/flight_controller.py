@@ -48,8 +48,8 @@ def init_flight_controller(sio: Server, logger: Logger | None):
 
     @sio.on('flights.subscribe')
     @socket_use_auth(sio)
-    def subscribe(sid):
+    async def subscribe(sid):
         """ Join a room to receive updates if flights are created/modified"""
     
-        sio.enter_room(sid, get_flight_room())
+        await sio.enter_room(sid, get_flight_room()) # type: ignore
         

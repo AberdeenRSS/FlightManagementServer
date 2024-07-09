@@ -1,6 +1,5 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
-from quart_schema import tag
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, user_optional, user_required, verify_role

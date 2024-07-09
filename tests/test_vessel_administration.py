@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from typing import Coroutine
 from fastapi.testclient import TestClient
 import pytest
-from quart import Quart
 
 from tests.auth_helper import get_auth_headers
 from tests.conftest import TEST_USER_UUID

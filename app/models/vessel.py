@@ -1,6 +1,5 @@
 from typing import Any, TypeVar, Union, cast
 from uuid import UUID
-from marshmallow import Schema, fields, post_load, validate
 from pydantic import BaseModel, Field
 
 from ..models.vessel_part import VesselPart

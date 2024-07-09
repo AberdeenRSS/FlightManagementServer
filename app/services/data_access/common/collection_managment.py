@@ -1,7 +1,7 @@
 from motor.core import AgnosticDatabase, AgnosticCollection
 from ..mongodb.mongodb_connection import get_db
 from typing import Any, Callable, Coroutine
-from quart import current_app
+from logging import Logger
 
 cached_collections = dict()
 
@@ -33,7 +33,7 @@ async def get_or_init_collection(name: str, create_collection_func: Callable[[Ag
         try:
             await create_collection_func(db, name)
         except Exception as e:
-            current_app.logger.warn(f'Collection creation failed. Retry ({i})... Error encountered {e}')
+            # Logger.error(e.args[0])
             continue
 
         cached_collections[name] = True

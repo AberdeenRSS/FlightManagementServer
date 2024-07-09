@@ -1,9 +1,7 @@
 import requests
-from quart import g, json
 import jwt
 from jwt import PyJWKClient
 from cryptography.hazmat.primitives import serialization
-from quart import current_app
 from os import environ
 
 azure_keys_jwk_client = None
@@ -29,7 +27,7 @@ def try_decode_token(token):
 
     public_key = jwtPublicKeyClient.get_signing_key_from_jwt(token)
 
-    audience = jwt_audience or current_app.config["audience"]
+    audience = jwt_audience 
 
     decoded = jwt.decode(
         token, 

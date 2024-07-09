@@ -5,7 +5,6 @@ import os
 from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 import pytest
-from quart import Quart
 import socketio
 import uvicorn
 from app.main import app

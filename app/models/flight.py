@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from datetime import timezone
 from typing import Dict, Union
 from uuid import UUID, uuid4
-from marshmallow import Schema, fields, validate
 from pydantic import BaseModel, Field
 
 from app.helper.datetime_model import AwareDatetimeModel
@@ -52,6 +51,8 @@ class Flight(AwareDatetimeModel):
     """
     When the flight ended
     """
+
+    measured_part_ids: list[str] = Field(default_factory=list)
 
     measured_parts: dict[str, list[FlightMeasurementDescriptor]] = Field(default_factory=dict)
     """

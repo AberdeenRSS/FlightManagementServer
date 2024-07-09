@@ -79,5 +79,5 @@ def init_flight_data_controller(sio: Server, logger: Logger | None):
         if not has_flight_permission(flight, vessel, 'read', user):
             return 'You don\'t have the required permission to access the flight', 403
     
-        sio.enter_room(sid, get_flight_data_room(flight_id))
+        await sio.enter_room(sid, get_flight_data_room(flight_id)) # type: ignore
         

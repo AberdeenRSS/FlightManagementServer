@@ -18,7 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 class GZipedMiddleware(BaseHTTPMiddleware):
     async def set_body(self, request: Request):
-        receive_ = await request._receive()
+        receive_ = await request._()
         if "gzip" in request.headers.getlist("Content-Encoding"):
             body = receive_.get('body')
             if isinstance(body, bytes):
@@ -65,7 +65,7 @@ def socketio_mount(
 
 # Init fast api
 app = FastAPI()
-app.add_middleware(GZipedMiddleware)
+# app.add_middleware(GZipedMiddleware)
 
 init_app(app)
 
