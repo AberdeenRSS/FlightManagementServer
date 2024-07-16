@@ -153,7 +153,7 @@ async def create_authorization_code(vessel_id: UUID, valid_until: datetime.datet
     if not has_vessel_permission(vessel, 'owner', user):
         raise HTTPException(403, 'You are not authorized to perform this action')
 
-    if  valid_until.timestamp() > (datetime.datetime.utcnow() + datetime.timedelta(266)).timestamp():
+    if  valid_until.timestamp() > (datetime.datetime.now(datetime.UTC) + datetime.timedelta(266)).timestamp():
         raise HTTPException(400, 'Maximum allowed date the token is valid until is one year')
 
     code = AuthorizationCode(_id=generate_auth_code(256), corresponding_user=vessel_id, single_use=False, valid_until=valid_until)

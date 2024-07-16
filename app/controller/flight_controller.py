@@ -1,7 +1,7 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID, uuid4
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, user_optional, user_required, verify_role
 from app.models.flight import Flight, FLIGHT_DEFAULT_HEAD_TIME
 from app.services.auth.jwt_user_info import UserInfo, get_socket_user_info
@@ -29,13 +29,13 @@ async def create_flight(flight: Flight, user: AuthRequired) -> Flight:
     # Create a new random uuid for the flight
     flight._id = uuid4()
 
-    flight.start = datetime.utcnow()
+    flight.start = datetime.now(UTC)
 
-    flight.start = flight.start.replace(tzinfo=timezone.utc)
+    # flight.start = flight.start.replace(tzinfo=timezone.utc)
 
-    flight.end = datetime.utcnow() + FLIGHT_DEFAULT_HEAD_TIME
+    flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
 
-    flight.end = flight.end.replace(tzinfo=timezone.utc)
+    # flight.end = flight.end.replace(tzinfo=timezone.utc)
 
     # Load the vessel to ensure it exists and to get its current version
     vessel = await get_vessel(flight.vessel_id)

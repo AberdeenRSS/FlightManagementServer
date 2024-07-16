@@ -80,7 +80,7 @@ async def authorization_code_flow(request: Request) -> TokenPair:
     if token is None:
         raise HTTPException(401, 'Invalid token')
     
-    if datetime.datetime.utcnow().timestamp() > token.valid_until.timestamp():
+    if datetime.datetime.now(datetime.UTC).timestamp() > token.valid_until.timestamp():
         await delete_code(data)
         raise HTTPException(401, 'Token expired')
     
