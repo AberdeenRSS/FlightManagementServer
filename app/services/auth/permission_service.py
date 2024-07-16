@@ -14,18 +14,25 @@ permission_index = {
     'owner': 4
 }
 
+def get_permission_index(permission_name: str) -> int:
+
+    if permission_name not in permission_index:
+        return 0
+    
+    return permission_index[permission_name]
+
 def has_vessel_permission(vessel: Vessel, permission: str, user: UserInfo):
     ''' Returns wether the current user has permission to access the vessel on the requested permission level'''
 
-    no_auth_permission = permission_index[vessel.no_auth_permission or 'none']
+    no_auth_permission = get_permission_index(vessel.no_auth_permission or 'none')
 
     user_permission = 0
 
     if user is not None:
         if user._id in vessel.permissions:
-            user_permission = permission_index[vessel.permissions[user._id]]
+            user_permission = get_permission_index(vessel.permissions[user._id])
 
-    return max(no_auth_permission, user_permission) >= permission_index[permission]
+    return max(no_auth_permission, user_permission) >= get_permission_index(permission)
 
 def has_flight_permission(flight: Flight, vessel: Vessel, permission: str, user: UserInfo):
     '''
@@ -33,15 +40,15 @@ def has_flight_permission(flight: Flight, vessel: Vessel, permission: str, user:
     If there are no flight permissions the vessel permission is used
     '''
 
-    no_auth_permission = permission_index[flight.no_auth_permission or 'none']
+    no_auth_permission = get_permission_index(flight.no_auth_permission or 'none')
 
     user_permission = 0
 
     if user is not None:
         if user._id in flight.permissions:
-            user_permission = permission_index[flight.permissions[user._id]]
+            user_permission = get_permission_index(flight.permissions[user._id])
 
-    if max(no_auth_permission, user_permission) >= permission_index[permission]:
+    if max(no_auth_permission, user_permission) >= get_permission_index(permission):
         return True
     
     return has_vessel_permission(vessel, permission, user)
