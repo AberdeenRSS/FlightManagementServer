@@ -10,7 +10,7 @@ user_controller = APIRouter(
     dependencies=[],
 )
 
-@user_controller.get("/get_names")
+@user_controller.post("/get_names")
 async def get_names(model: list[UUID]) -> dict[UUID, str]:
 
     users = await get_users(model)
