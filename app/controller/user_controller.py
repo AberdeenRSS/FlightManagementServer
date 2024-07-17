@@ -1,3 +1,4 @@
+from http.client import HTTPException
 from typing import Dict, List
 from fastapi import APIRouter
 from uuid import UUID
@@ -15,5 +16,8 @@ async def get_names(model: list[UUID]) -> dict[UUID, str]:
 
     users = await get_users(model)
 
+    if not users:
+        raise HTTPException(404, f'User id(s) do not exist')
+    
     return dict([(u.id, u.name) for u in users])
 
