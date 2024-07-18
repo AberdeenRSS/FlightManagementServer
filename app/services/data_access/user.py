@@ -42,7 +42,7 @@ async def get_users(ids: Collection[UUID]) -> list[User]:
 
     collection = await get_or_init_user_collection()
     
-    string_ids = [str(id) for id in ids]
+    string_ids = ids # [str(id) for id in ids]
 
     raw = await collection.find({'_id': {'$in': string_ids }}).to_list(1000)
 
