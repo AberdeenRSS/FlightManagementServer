@@ -1,3 +1,6 @@
+![example workflow](https://github.com/AberdeenRSS/FlightManagementServer/actions/workflows/deploy_to_server.yml/badge.svg)
+
+
 # Introduction
 
 The Flight Management Server is a cloud service that handles all data produced by vessels during a flight. This includes the storing and live forwarding of all measurement data as well as dispatching commands to the vessels.   
