@@ -1,0 +1,23 @@
+# Introduction
+
+The Flight Management Server is a cloud service that handles all data produced by vessels during a flight. This includes the storing and live forwarding of all measurement data as well as dispatching commands to the vessels.   
+
+We are currently hosting the api at [https://api.uoarocketry.org](https://api.uoarocketry.org)   
+Click [here](https://api.uoarocketry.org/docs) for the auto generated api documentation
+
+## Build
+
+To build the project youself follow these steps:
+
+1. Create a virtual environment with python 3.9 or above
+2. Install all required packages using `pip install -r requirements.txt` within your venv
+3. Change settings as required in `/app/config.py` (config values can be changed through cmd, but this is sightly easier to begin with)
+
+## Run
+
+### VS Code
+if you are using vscode you can just hit `F5` to start the preconfigured debugger
+
+### Any other environment
+
+Use `python -m uvicorn app.main:app --reload` to start the server
