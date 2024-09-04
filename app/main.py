@@ -88,10 +88,7 @@ sio = socketio_mount(app)
 
 init_socket_io_controller(sio)
 
-
-
 # init_app(app)
-
 
 # if __name__ == '__main__':
 #     start_fast_api()
