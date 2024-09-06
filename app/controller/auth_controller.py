@@ -70,6 +70,12 @@ async def login(data: LoginModel) -> TokenPair:
 async def authorization_code_flow(data: RefreshTokenModel) -> TokenPair:
 
     refresh_token = data.refresh_token
+
+    # This is to clean the token from any newlines or spaces
+    refresh_token = refresh_token.replace('\n', '').replace('\r', '').replace(' ', '')
+
+    print(f'Using token: {data}')
+    
     token = await get_code(refresh_token)
 
     if token is None:
