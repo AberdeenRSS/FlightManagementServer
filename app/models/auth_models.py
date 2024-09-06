@@ -17,4 +17,4 @@ class LoginModel(BaseModel):
     pw: str
 
 class RefreshTokenModel(BaseModel):
-    refresh_token: str
+    token: str

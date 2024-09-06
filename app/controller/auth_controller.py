@@ -69,20 +69,20 @@ async def login(data: LoginModel) -> TokenPair:
 @auth_controller.post("/authorization_code_flow")
 async def authorization_code_flow(data: RefreshTokenModel) -> TokenPair:
 
-    refresh_token = data.refresh_token
+    token_value = data.token
 
     # This is to clean the token from any newlines or spaces
-    refresh_token = refresh_token.replace('\n', '').replace('\r', '').replace(' ', '')
+    token_value = token_value.replace('\n', '').replace('\r', '').replace(' ', '')
 
     print(f'Using token: {data}')
     
-    token = await get_code(refresh_token)
+    token = await get_code(token_value)
 
     if token is None:
         raise HTTPException(401, 'Invalid token')
     
     if datetime.datetime.now(datetime.UTC).timestamp() > token.valid_until.timestamp():
-        await delete_code(refresh_token)
+        await delete_code(token_value)
         raise HTTPException(401, 'Token expired')
     
     user = await get_user(token.corresponding_user)
