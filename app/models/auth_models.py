@@ -15,3 +15,6 @@ class LoginModel(BaseModel):
     unique_name: str
 
     pw: str
+
+class RefreshTokenModel(BaseModel):
+    refresh_token: str
