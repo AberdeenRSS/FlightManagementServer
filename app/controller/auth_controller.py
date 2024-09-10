@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from app.middleware.auth.requireAuth import user_required
 
 from app.services.auth.jwt_user_info import UserInfo
-from ..models.auth_models import LoginModel, RegisterModel
+from ..models.auth_models import LoginModel, RefreshTokenModel, RegisterModel
 from ..models.authorization_code import TokenPair
 from ..models.user import User, hash_password
 from ..services.data_access.auth_code import create_auth_code
@@ -67,21 +67,22 @@ async def login(data: LoginModel) -> TokenPair:
   
 
 @auth_controller.post("/authorization_code_flow")
-async def authorization_code_flow(request: Request) -> TokenPair:
+async def authorization_code_flow(data: RefreshTokenModel) -> TokenPair:
 
-    data = str(await request.body(), encoding='utf-8')
+    token_value = data.token
 
-    data = data.replace('\n', '').replace('\r', '').replace(' ', '')
+    # This is to clean the token from any newlines or spaces
+    token_value = token_value.replace('\n', '').replace('\r', '').replace(' ', '')
 
     print(f'Using token: {data}')
-
-    token = await get_code(data)
+    
+    token = await get_code(token_value)
 
     if token is None:
         raise HTTPException(401, 'Invalid token')
     
     if datetime.datetime.now(datetime.UTC).timestamp() > token.valid_until.timestamp():
-        await delete_code(data)
+        await delete_code(token_value)
         raise HTTPException(401, 'Token expired')
     
     user = await get_user(token.corresponding_user)
@@ -94,7 +95,7 @@ async def authorization_code_flow(request: Request) -> TokenPair:
         await create_or_update_user(user)
     
     if token.single_use:
-        await delete_code(data)
+        await delete_code(refresh_token)
 
     return await generate_token_with_refresh(user)
 
