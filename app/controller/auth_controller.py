@@ -95,7 +95,7 @@ async def authorization_code_flow(data: RefreshTokenModel) -> TokenPair:
         await create_or_update_user(user)
     
     if token.single_use:
-        await delete_code(refresh_token)
+        await delete_code(token_value)
 
     return await generate_token_with_refresh(user)
 
