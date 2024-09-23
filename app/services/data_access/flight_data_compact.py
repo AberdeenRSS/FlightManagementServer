@@ -158,7 +158,7 @@ async def insert_flight_data(measurements: list[FlightMeasurementCompactDB], fli
 
     s.send(None, flight_id=flight_id, measurements = measurements) # type: ignore
 
-async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurement]:
+async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurementCompactDB]:
     collection = await get_or_init_flight_data_collection()
 
     # Get all measurements in the date range
@@ -177,7 +177,7 @@ async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIde
 
         del m['metadata']
 
-    return [FlightMeasurement(**r) for r in res]
+    return [FlightMeasurementCompactDB(**r) for r in res]
 
 async def get_aggregated_flight_data(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, resolution: Literal['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: list[FlightMeasurementDescriptor] ):
 

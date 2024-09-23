@@ -173,7 +173,7 @@ async def get_aggregated(flight_id: uuid.UUID, vessel_part: uuid.UUID, resolutio
     return values
 
 @flight_data_controller.get("/get_range/{flight_id}/{vessel_part}/{start}/{end}")
-async def getRange(flight_id: uuid.UUID, vessel_part: uuid.UUID, start: str, end: str, user: AuthOptional) -> list[FlightMeasurement]:
+async def getRange(flight_id: uuid.UUID, vessel_part: uuid.UUID, start: str, end: str, user: AuthOptional) -> list[FlightMeasurementCompactDB]:
     """
     Gets flight measurements for a specific part within the specified range.
     """
