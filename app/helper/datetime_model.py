@@ -5,7 +5,7 @@ from pydantic import BaseModel
 class AwareDatetimeModel(BaseModel):
     class Config:
         json_encoders = {
-            datetime: lambda dt: dt.isoformat(),
+            datetime: lambda dt: dt.isoformat() if dt is not None else "",
         }
 
     @classmethod

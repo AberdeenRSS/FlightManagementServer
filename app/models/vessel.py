@@ -11,7 +11,7 @@ class Vessel(BaseModel):
     The id of the vessel (primary identifier)
     """
 
-    version: int =  Field(alias='_version', alias_priority=1, default=0)
+    version: int = Field(alias='_version', alias_priority=1, default=0)
     """
     The version of this vessel
     This is to track if any of the information about the vessel

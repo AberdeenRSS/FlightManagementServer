@@ -25,7 +25,7 @@ class FlightMeasurement(AwareDatetimeModel):
     """A single measurement relayed back by the model
     """
     
-    datetime_value: datetime = Field(alias='_datetime', alias_priority=1, default=None)
+    datetime_value: Union[datetime, None] = Field(alias='_datetime', alias_priority=1, default=None)
     """The datetime the measurement is for (primary index)"""
 
     measured_values: dict[str, Union[str, int, float]] = Field(default_factory=dict)
