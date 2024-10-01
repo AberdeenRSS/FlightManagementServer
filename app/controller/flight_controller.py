@@ -49,6 +49,19 @@ async def create_flight(flight: Flight, user: AuthRequired) -> Flight:
 
     return acc
 
+
+@flight_controller.post("/delete/")
+async def delete(vessel_id: UUID, user: AuthRequired ) -> int:
+
+    flight = await get_flight(vessel_id)
+
+    vessel = get_vessel(flight.vessel_id)
+
+    parts of the vessel
+
+    measurements where part is one of the parts AND the flight is this flight
+
+
 @flight_controller.get("/get_all/{vessel_id}")
 async def get_all(vessel_id: UUID, user: AuthOptional) -> list[Flight]:
     """
