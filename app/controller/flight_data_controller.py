@@ -1,5 +1,5 @@
 
-from datetime import UTC, datetime, timezone
+from datetime import datetime, timezone
 from io import BytesIO
 import math
 import time
@@ -53,7 +53,7 @@ async def report_binary(flight_id: uuid.UUID, request: Request, user: AuthRequir
 
     # In case the end of the flight is coming near extend it
     if flight.end is not None and (flight.end.timestamp() - datetime.now(timezone.utc).timestamp()) < FLIGHT_MINIMUM_HEAD_TIME.total_seconds():
-        flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
+        flight.end = datetime.now(timezone.utc) + FLIGHT_DEFAULT_HEAD_TIME
         flight.end = flight.end.replace(tzinfo=timezone.utc)
         await create_or_update_flight(flight)
 
@@ -110,7 +110,7 @@ async def report_flight_data_compact(flight_id: uuid.UUID, measurements: list[Fl
 
     # In case the end of the flight is coming near extend it
     if flight.end is not None and (flight.end.timestamp() - datetime.now(timezone.utc).timestamp()) < FLIGHT_MINIMUM_HEAD_TIME.total_seconds():
-        flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
+        flight.end = datetime.now(timezone.utc) + FLIGHT_DEFAULT_HEAD_TIME
         flight.end = flight.end.replace(tzinfo=timezone.utc)
         await create_or_update_flight(flight)
 

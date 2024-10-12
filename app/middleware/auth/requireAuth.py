@@ -6,7 +6,7 @@ from socketio import Server
 from ...services.auth.jwt_auth_service import validate_access_token
 from ...services.auth.jwt_user_info import UserInfo, get_socket_user_info, set_socket_user_info, user_from_token
 
-def try_get_bearer(x_access_token: Annotated[str | None, Header(alias='Authorization')] = None) -> Union[str, None]:
+def try_get_bearer(x_access_token: Annotated[Union[str, None], Header(alias='Authorization')] = None) -> Union[str, None]:
 
     if x_access_token is None:
         return None
@@ -16,7 +16,7 @@ def try_get_bearer(x_access_token: Annotated[str | None, Header(alias='Authoriza
 
     return x_access_token
 
-def user_optional(bearer: Annotated[str | None, Depends(try_get_bearer)]) -> Union[UserInfo, None]:
+def user_optional(bearer: Annotated[Union[str, None], Depends(try_get_bearer)]) -> Union[UserInfo, None]:
     '''Returns "None" if successful, otherwise returns string with rejection reason'''
 
     if bearer is None:
@@ -24,7 +24,7 @@ def user_optional(bearer: Annotated[str | None, Depends(try_get_bearer)]) -> Uni
 
     return get_user_from_bearer(bearer)
 
-def user_required(bearer: Annotated[str | None, Depends(try_get_bearer)]) -> UserInfo:
+def user_required(bearer: Annotated[Union[str, None], Depends(try_get_bearer)]) -> UserInfo:
 
     if bearer is None:
         raise HTTPException(401, 'Missing bearer token')

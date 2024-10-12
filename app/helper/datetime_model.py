@@ -1,6 +1,5 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
-
 
 class AwareDatetimeModel(BaseModel):
     class Config:
@@ -10,7 +9,7 @@ class AwareDatetimeModel(BaseModel):
 
     @classmethod
     def datetime_utc(cls, dt: datetime) -> datetime:
-        return dt.astimezone(UTC)
+        return dt.astimezone(timezone.utc)
 
     @classmethod
     def parse_datetime(cls, value):

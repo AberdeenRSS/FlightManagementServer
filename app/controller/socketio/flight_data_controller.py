@@ -1,7 +1,7 @@
 import asyncio
 import json
 from logging import Logger
-from typing import Coroutine, cast
+from typing import Coroutine, Union, cast
 from uuid import UUID
 from socketio import Server
 from blinker import NamedSignal, signal
@@ -51,7 +51,7 @@ def get_on_new_flight_data(sio: Server):
 
     return on_new_flight_data
 
-def init_flight_data_controller(sio: Server, logger: Logger | None):
+def init_flight_data_controller(sio: Server, logger: Union[Logger, None]):
 
     s = cast(NamedSignal, signal(NEW_FLIGHT_DATA_COMPACT))
 

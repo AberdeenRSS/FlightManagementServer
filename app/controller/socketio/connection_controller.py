@@ -1,11 +1,11 @@
 from logging import Logger
-from typing import Coroutine, cast
+from typing import Coroutine, Union, cast
 from socketio import Server
 from app.middleware.auth.requireAuth import try_authenticate_socket
 
 from app.services.auth.jwt_user_info import UserInfo, get_socket_user_info
 
-def init_connection_controller(sio: Server, logger: Logger | None):
+def init_connection_controller(sio: Server, logger: Union[Logger, None]):
 
     @sio.event
     async def connect(sid, environ, auth):

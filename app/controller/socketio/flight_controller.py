@@ -1,6 +1,6 @@
 import asyncio
 from logging import Logger
-from typing import Coroutine, cast
+from typing import Coroutine, Union, cast
 from socketio import Server
 from blinker import Signal
 
@@ -37,7 +37,7 @@ def make_on_update_flight(sio: Server):
 
     return on_update_flight
 
-def init_flight_controller(sio: Server, logger: Logger | None):
+def init_flight_controller(sio: Server, logger: Union[Logger, None]):
 
     new_signal = get_flight_new_signal()
     update_signal = get_flight_update_signal()

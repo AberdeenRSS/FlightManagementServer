@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -21,7 +21,7 @@ async def create_api_user(uuid: UUID):
     return new_user
 
 async def create_auth_code_for_user(user: User):
-    code = AuthorizationCode(_id=generate_auth_code(265), corresponding_user=user.id, single_use=True, valid_until=datetime.now(UTC) + timedelta(0, 10_000))
+    code = AuthorizationCode(_id=generate_auth_code(265), corresponding_user=user.id, single_use=True, valid_until=datetime.now(timezone.utc) + timedelta(0, 10_000))
 
     await create_auth_code(code)
 

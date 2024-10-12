@@ -16,6 +16,8 @@ from starlette.types import Message
 from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from amqtt.broker import Broker
+
 class GZipedMiddleware(BaseHTTPMiddleware):
     async def set_body(self, request: Request):
         receive_ = await request._()
@@ -87,6 +89,36 @@ app.add_middleware(
 sio = socketio_mount(app)
 
 init_socket_io_controller(sio)
+
+# Define MQTT broker configuration
+config = {
+    "listeners": {
+        "default": {
+            "type": "tcp",
+            "bind": "0.0.0.0:1883",
+        },
+    },
+    "sys_interval": 60,
+    "topic-check": {
+        "enabled": True,
+        "plugins": ["auth.anonymous"],
+    },
+}
+
+broker = Broker(config)
+
+# Create an async function to start the broker
+@app.on_event("startup")
+async def start_broker():
+    await broker.start()
+
+# Create an async function to stop the broker
+@app.on_event("shutdown")
+async def stop_broker():
+    await broker.shutdown()
+
+
+# Use FastAPI to serve your MQTT broker
 
 # init_app(app)
 

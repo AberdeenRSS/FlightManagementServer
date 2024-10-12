@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Coroutine
 from uuid import uuid4
 from fastapi.testclient import TestClient
@@ -25,7 +25,7 @@ async def test_create_vehicle_auth_code(test_client: TestClient, test_user_beare
     second_user = await create_api_user(uuid4())
     second_user_bearer = await get_bearer_for_user(second_user, test_client)
 
-    valid_until = datetime.now(UTC) + timedelta(1)
+    valid_until = datetime.now(timezone.utc) + timedelta(1)
 
     # Expect the first request to fail as the second user has no permission yet
     create_auth_code_response_1 = test_client.post(f'/vessel/create_auth_code/{vessel_id}/{valid_until.isoformat()}', headers=get_auth_headers(second_user_bearer))

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timezone
+from datetime import datetime, timezone
 import json
 from typing import Annotated, cast
 from uuid import UUID
@@ -81,9 +81,9 @@ async def dispatch_commands(flight_id: UUID, commands: list[Command], user: Anno
             raise HTTPException(400, f'Invalid payload for {command.id} (type: {command.command_type})')
         
     # In case the end of the flight is coming near extend it
-    if flight.end is not None and (flight.end - datetime.now(UTC)) < FLIGHT_MINIMUM_HEAD_TIME:
-        flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
-        await create_or_update_flight(flight)
+    # if flight.end is not None and (flight.end - datetime.now(timezone.utc)) < FLIGHT_MINIMUM_HEAD_TIME:
+    #     flight.end = datetime.now(timezone.utc) + FLIGHT_DEFAULT_HEAD_TIME
+    #     await create_or_update_flight(flight)
 
     await insert_commands(commands, flight_id, True)
 
@@ -142,8 +142,8 @@ async def confirm_command(flight_id: UUID, commands: list[Command], user: Annota
                 raise HTTPException(400, f'Invalid response for {command.id} (type: {command.command_type})')
             
     # In case the end of the flight is coming near extend it
-    if flight.end is not None and (flight.end - datetime.now(UTC)) < FLIGHT_MINIMUM_HEAD_TIME:
-        flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
+    if flight.end is not None and (flight.end - datetime.now(timezone.utc)) < FLIGHT_MINIMUM_HEAD_TIME:
+        flight.end = datetime.now(timezone.utc) + FLIGHT_DEFAULT_HEAD_TIME
         await create_or_update_flight(flight)
 
     await insert_or_update_commands(commands, flight_id, False)
