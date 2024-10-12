@@ -81,9 +81,9 @@ async def dispatch_commands(flight_id: UUID, commands: list[Command], user: Anno
             raise HTTPException(400, f'Invalid payload for {command.id} (type: {command.command_type})')
         
     # In case the end of the flight is coming near extend it
-    if flight.end is not None and (flight.end - datetime.now(UTC)) < FLIGHT_MINIMUM_HEAD_TIME:
-        flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
-        await create_or_update_flight(flight)
+    # if flight.end is not None and (flight.end - datetime.now(UTC)) < FLIGHT_MINIMUM_HEAD_TIME:
+    #     flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
+    #     await create_or_update_flight(flight)
 
     await insert_commands(commands, flight_id, True)
 
