@@ -8,8 +8,7 @@ import pytest
 import socketio
 import uvicorn
 from app.main import app
-from socketio import ASGIApp
-from socketio.asyncio_client import AsyncClient
+from socketio import ASGIApp, AsyncClient
 from app.models.authorization_code import AuthorizationCode, generate_auth_code
 from app.models.user import User
 from app.services.data_access.auth_code import create_auth_code

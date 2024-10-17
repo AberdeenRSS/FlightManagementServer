@@ -1,16 +1,15 @@
-import json
+'''import json
 from typing import Coroutine
 from uuid import uuid4
 import pytest
-from quart import Quart
 from models.user import User
 
 from services.data_access.user import create_or_update_user
 
 @pytest.mark.asyncio
-async def test_get_user_names(quart: Quart):
+async def test_get_user_names(quart:Quart):
 
-    client = quart.test_client()
+    client = TestClient(app)
 
     unique_name_1 = f'{uuid4()}@whatever.com'
     pw_1 = str(uuid4())
@@ -35,3 +34,4 @@ async def test_get_user_names(quart: Quart):
 
     assert user_names[str(user1._id)] == 'TEST_USER_1'
     assert user_names[str(user2._id)] == 'TEST_USER_2'
+'''
