@@ -19,7 +19,7 @@ To build the project youself follow these steps:
 ## Run
 
 ### VS Code
-if you are using vscode you can just hit `F5` to start the preconfigured debugger
+if you are using vscode you can just hit `F5` to start the preconfigured debugger 
 
 ### Any other environment
 

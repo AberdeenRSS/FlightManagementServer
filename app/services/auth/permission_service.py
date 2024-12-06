@@ -24,10 +24,6 @@ def get_permission_index(permission_name: str) -> int:
 def has_vessel_permission(vessel: Vessel, permission: str, user: UserInfo):
     ''' Returns wether the current user has permission to access the vessel on the requested permission level'''
 
-    if user is None:
-        return 0
-    
-    
     no_auth_permission = get_permission_index(vessel.no_auth_permission or 'none')
 
     user_permission = 0
