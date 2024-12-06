@@ -35,6 +35,9 @@ async def test_user_auth_code(test_user):
 
 @pytest.fixture(scope="function")
 async def test_user_bearer(test_client: TestClient, test_user_auth_code):
+    """
+    Returns a bearer token for a test user
+    """
     user_code = await test_user_auth_code
     assert user_code is not None
 

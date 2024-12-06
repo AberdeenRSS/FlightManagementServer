@@ -20,5 +20,7 @@ async def test_create_vessel(test_client: TestClient, test_user_bearer):
     permissions = vessel['permissions']
     owners = [p[0] for p in permissions.items() if p[1] == 'owner']
 
+    # The vessel should be created with only the user as the owner
+    assert len(permissions) == 1
     assert len(owners) == 1
     assert owners[0] == str(TEST_USER_UUID)

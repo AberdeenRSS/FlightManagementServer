@@ -11,7 +11,7 @@ def test_register(test_client:TestClient):
         "pw": pw
     }
     res = test_client.post("/auth/register",json=data)
-    print(res.json())
+
     assert res.status_code == 200
 
     res_payload = res.json()
