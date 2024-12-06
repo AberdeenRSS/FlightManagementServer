@@ -35,4 +35,4 @@ Use the Username/Password flow. Enables permission based access to resources lik
 
 ### Vessels
 
-Use the token auth lfow
+Use the token auth flow
