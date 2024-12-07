@@ -19,6 +19,7 @@ async def test_create_vessel_auth_code(test_client: TestClient, test_user_bearer
     vessel = create_response.json()
     vessel_id = vessel['_id']
     valid_until = datetime.now(UTC) + timedelta(1)
+    assert vessel['no_auth_permission'] is None
 
     # Create an auth code for the vessel by the first user
     auth_code_response = test_client.post(f'/vessel/create_auth_code/{vessel_id}/{valid_until.isoformat()}', headers=get_auth_headers(bearer))

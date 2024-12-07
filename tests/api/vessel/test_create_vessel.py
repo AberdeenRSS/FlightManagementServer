@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from tests.auth_helper import get_auth_headers
 from tests.conftest import TEST_USER_UUID
+from uuid import uuid4
 
 @pytest.mark.asyncio
 async def test_create_vessel(test_client: TestClient, test_user_bearer):
@@ -26,3 +27,4 @@ async def test_create_vessel(test_client: TestClient, test_user_bearer):
     assert owners[0] == str(TEST_USER_UUID)
     # other users should not be able to access the vessel without permissions
     assert vessel['no_auth_permission'] is None
+
