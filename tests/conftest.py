@@ -4,13 +4,39 @@ from app.main import app
 from uuid import UUID, uuid4
 from app.services.data_access.user import create_or_update_user, get_user
 from tests.auth_helper import create_api_user,create_auth_code_for_user
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ServerSelectionTimeoutError
+
 
 TEST_USER_UUID = UUID('ff268568-5829-4bf4-90d1-a865e36d49a3')
 
 @pytest.fixture(scope="session")
 def test_client():
     # A shared client across all tests
-    return TestClient(app)
+    test_client_app = TestClient(app)
+    
+    try:
+        db_client = MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=2000)
+        # This is synchronous and will raise ServerSelectionTimeoutError if can't connect
+        db_client.server_info()
+    except ServerSelectionTimeoutError as e:
+        pytest.fail(f"MongoDB connection failed - make sure MongoDB is running on port 27017. Error: {str(e)}")
+    finally:
+        db_client.close()
+
+    return test_client_app
+
+async def check_db_connection():
+        try:
+            client = AsyncIOMotorClient('mongodb://localhost:27017')
+            # Ping the server to confirm connection
+            await client.admin.command('ping')
+        except Exception as e:
+            pytest.fail(f"MongoDB connection failed - make sure MongoDB is running on port 27017. Error: {str(e)}")
+        finally:
+            client.close()
 
 @pytest.fixture(scope="function")
 async def test_user():
