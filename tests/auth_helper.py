@@ -14,7 +14,12 @@ def get_auth_headers(token):
     return {'Authorization': f'Bearer {token}'}
 
 async def create_api_user(uuid: UUID):
-    new_user = User(_id=uuid, pw=None, unique_name=str(uuid), name='Test user', roles=[])
+    new_user = User(
+        _id=uuid, 
+        pw=None, 
+        unique_name=str(uuid), 
+        name='Test user', 
+        roles=[])
 
     await create_or_update_user(new_user)
 
@@ -31,6 +36,6 @@ async def get_bearer_for_user(user: User, api_client: TestClient):
 
     code = await create_auth_code_for_user(user)
 
-    token_response = api_client.post('/auth/authorization_code_flow', data=code.id)
+    token_response = api_client.post('/auth/authorization_code_flow', json={'token':code.id})
 
     return (token_response.json())['token']
