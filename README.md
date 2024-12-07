@@ -1,4 +1,5 @@
 ![example workflow](https://github.com/AberdeenRSS/FlightManagementServer/actions/workflows/deploy_to_server.yml/badge.svg)
+![example_workflow](https://github.com/AberdeenRSS/FlightManagementServer/actions/workflows/test.yml/badge.svg)
 
 
 # Introduction
