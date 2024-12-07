@@ -24,3 +24,5 @@ async def test_create_vessel(test_client: TestClient, test_user_bearer):
     assert len(permissions) == 1
     assert len(owners) == 1
     assert owners[0] == str(TEST_USER_UUID)
+    # other users should not be able to access the vessel without permissions
+    assert vessel['no_auth_permission'] is None
