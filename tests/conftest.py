@@ -1,52 +1,42 @@
-import asyncio
-import datetime
-from typing import Any, AsyncIterator, Awaitable, Coroutine, List, Optional
-import os
-from uuid import UUID, uuid4
-from fastapi.testclient import TestClient
 import pytest
-import socketio
-import uvicorn
+from fastapi.testclient import TestClient
 from app.main import app
-from socketio import ASGIApp
-from socketio.asyncio_client import AsyncClient
-from app.models.authorization_code import AuthorizationCode, generate_auth_code
-from app.models.user import User
-from app.services.data_access.auth_code import create_auth_code
-
+from uuid import UUID, uuid4
 from app.services.data_access.user import create_or_update_user, get_user
-from tests.auth_helper import create_api_user, create_auth_code_for_user
+from tests.auth_helper import create_api_user,create_auth_code_for_user
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ServerSelectionTimeoutError
 
-PORT = 8000
-LISTENING_IF = "127.0.0.1"
-BASE_URL = f"http://{LISTENING_IF}:{PORT}"
-
-# quart_server, socket_io = create_app()
-
-# quart_server.config['connection_string'] = 'mongodb://localhost:27017'
-
-# app = socketio.ASGIApp(app, quart_server)
 
 TEST_USER_UUID = UUID('ff268568-5829-4bf4-90d1-a865e36d49a3')
 
-
 @pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop()
-    yield loop
-    loop.close()
-
-@pytest.fixture(autouse=True, scope="session")
 def test_client():
-    client = TestClient(app)
-    return client
+    # A shared client across all tests
+    test_client_app = TestClient(app)
+    
+    try:
+        db_client = MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=2000)
+        # This is synchronous and will raise ServerSelectionTimeoutError if can't connect
+        db_client.server_info()
+    except ServerSelectionTimeoutError as e:
+        pytest.fail(f"MongoDB connection failed - make sure MongoDB is running on port 27017. Error: {str(e)}")
+    finally:
+        db_client.close()
 
-@pytest.fixture(scope="session")
-async def client() -> AsyncIterator[AsyncClient]:
-    sio = socketio.AsyncClient()
-    await sio.connect(BASE_URL)
-    yield sio
-    await sio.disconnect()
+    return test_client_app
+
+async def check_db_connection():
+        try:
+            client = AsyncIOMotorClient('mongodb://localhost:27017')
+            # Ping the server to confirm connection
+            await client.admin.command('ping')
+        except Exception as e:
+            pytest.fail(f"MongoDB connection failed - make sure MongoDB is running on port 27017. Error: {str(e)}")
+        finally:
+            client.close()
 
 @pytest.fixture(scope="function")
 async def test_user():
@@ -61,7 +51,7 @@ async def test_user():
     return new_user
 
 @pytest.fixture(scope="function")
-async def test_user_auth_code(test_user: Coroutine[User, None, User]):
+async def test_user_auth_code(test_user):
     user = await test_user
     assert user is not None
 
@@ -70,11 +60,14 @@ async def test_user_auth_code(test_user: Coroutine[User, None, User]):
     return code.id
 
 @pytest.fixture(scope="function")
-async def test_user_bearer(test_client: TestClient, test_user_auth_code: Coroutine[User, None, User]):
+async def test_user_bearer(test_client: TestClient, test_user_auth_code):
+    """
+    Returns a bearer token for a test user
+    """
     user_code = await test_user_auth_code
     assert user_code is not None
 
-    token_response = test_client.post('/auth/authorization_code_flow', data=user_code)
+    token_response = test_client.post('/auth/authorization_code_flow', json={'token': user_code})
 
+    assert token_response.status_code == 200
     return token_response.json()['token']
-

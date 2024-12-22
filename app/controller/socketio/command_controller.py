@@ -118,7 +118,7 @@ def init_command_controller(sio: Server, logger: Union[Logger, None]):
     @sio.on('command.subscribe_as_vessel')
     @socket_authenticated_only(sio)
     @role_required_socket('vessel')
-    def subscribe_as_vessel(sid, flight_id):
+    async def subscribe_as_vessel(sid, flight_id):
         """ Join a room to receive all commands send for a specific flight"""
 
         # user = get_user_info(sid)
@@ -128,7 +128,7 @@ def init_command_controller(sio: Server, logger: Union[Logger, None]):
         
         room = get_command_room_vessel(flight_id)
 
-        sio.enter_room(sid, room)
+        await sio.enter_room(sid, room)
 
             
         
