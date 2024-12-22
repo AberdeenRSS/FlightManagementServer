@@ -143,7 +143,7 @@ async def confirm_command(flight_id: UUID, commands: list[Command], user: Annota
             
     # In case the end of the flight is coming near extend it
     if flight.end is not None and (flight.end.timestamp() - datetime.now(timezone.utc).timestamp()) < FLIGHT_MINIMUM_HEAD_TIME.total_seconds():
-        flight.end = datetime.now(UTC) + FLIGHT_DEFAULT_HEAD_TIME
+        flight.end = datetime.now(timezone.utc) + FLIGHT_DEFAULT_HEAD_TIME
         flight.end = flight.end.replace(tzinfo=timezone.utc)
         await create_or_update_flight(flight)
 

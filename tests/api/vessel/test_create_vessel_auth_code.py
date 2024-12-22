@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta
-from pytz import UTC
+from datetime import datetime, timedelta, timezone
 from tests.auth_helper import get_auth_headers, create_api_user, get_bearer_for_user
 from uuid import uuid4
 
@@ -18,7 +17,7 @@ async def test_create_vessel_auth_code(test_client: TestClient, test_user_bearer
 
     vessel = create_response.json()
     vessel_id = vessel['_id']
-    valid_until = datetime.now(UTC) + timedelta(1)
+    valid_until = datetime.now(timezone.utc) + timedelta(1)
     assert vessel['no_auth_permission'] is None
 
     # Create an auth code for the vessel by the first user
