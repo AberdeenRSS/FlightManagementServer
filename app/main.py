@@ -2,10 +2,10 @@ import gzip
 from app.controller.auth_controller import auth_controller
 from app.controller.command_controller import command_controller
 from app.controller.socketio.init import init_socket_io_controller
-from app.controller.vessel_controller import vessel_controller
+from app.controller.vessel_controller import vessel_controller,vessels_controller
 from app.controller.user_controller import user_controller
 from app.controller.flight_data_controller import flight_data_controller
-from app.controller.flight_controller import flight_controller
+from app.controller.flight_controller import flight_controller, flights_controller
 from app.helper.json_helper import PlainJsonSerializer
 from app.services.data_access.mongodb.mongodb_connection import init_app
 from fastapi import FastAPI
@@ -72,6 +72,8 @@ init_app(app)
 app.include_router(auth_controller)
 app.include_router(command_controller)
 app.include_router(vessel_controller)
+app.include_router(vessels_controller) # /v1/
+app.include_router(flights_controller) # /v1/
 app.include_router(flight_controller)
 app.include_router(flight_data_controller)
 app.include_router(user_controller)

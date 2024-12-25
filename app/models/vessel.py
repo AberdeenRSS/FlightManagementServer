@@ -4,6 +4,9 @@ from pydantic import BaseModel, Field
 
 from ..models.vessel_part import VesselPart
 
+class CreateVessel(BaseModel):
+    name: str
+    
 class Vessel(BaseModel):
     
     id: UUID = Field(alias='_id', alias_priority=1, default=None)

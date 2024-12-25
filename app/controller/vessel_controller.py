@@ -1,15 +1,16 @@
 import datetime
-from typing import cast
+from typing import Annotated, Optional, cast
 from uuid import UUID, uuid4
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 
 from pydantic import RootModel
 from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, verify_role
 
-from app.models.vessel import Vessel, VesselHistoric
-from app.models.authorization_code import AuthorizationCode, generate_auth_code
+from app.models.vessel import Vessel, VesselHistoric, CreateVessel
+from app.models.authorization_code import AuthorizationCode, generate_auth_code,CreateAuthorizationCode
 from app.models.user import User
+from app.models.permissions import Permission
 from app.services.auth.jwt_user_info import get_socket_user_info
 from app.services.auth.permission_service import has_vessel_permission, modify_vessel_permission
 from app.services.data_access.auth_code import create_auth_code, get_auth_codes_for_user
@@ -22,7 +23,14 @@ vessel_controller = APIRouter(
     dependencies=[],
 )
 
+vessels_controller = APIRouter(
+    prefix="/v1/vessels",
+    tags=["v1/vessels"],
+    dependencies=[],
+)
+
 # Method for a vessel to register
+@vessels_controller.post("/register", response_model_by_alias=True)
 @vessel_controller.post("/register", response_model_by_alias=True)
 async def registerVessel(data: Vessel, user: AuthRequired) -> Vessel:
     """
@@ -43,23 +51,40 @@ async def registerVessel(data: Vessel, user: AuthRequired) -> Vessel:
 
     return acc
 
+@vessels_controller.get("/")
 @vessel_controller.get("/get_all")
-async def get_all(user: AuthOptional) -> list[Vessel]:
+async def get_all(user: AuthOptional,name: Optional[str] = Query(default=None, description="Filter vessels by name")
+) -> list[Vessel]:
     """
     Returns all vessels known to server
     """
 
     vessels = await get_all_vessels()
-    res = [v for v in vessels if has_vessel_permission(v, 'view', user)]
-    return res
+    vessels = [v for v in vessels if has_vessel_permission(v, 'view', user)]
+    
+    # Then filter by name if provided
+    if name:
+        vessels = [v for v in vessels if name.lower() in v.name.lower()]  # Case-insensitive search
+    
+    return vessels
+
 
 @vessel_controller.get("/get/{vessel_id}/{version}")
-async def get_vessel_historic(vessel_id: UUID, version: int, user: AuthOptional) -> Vessel:
+async def get_vessel_historic_legacy(user:AuthOptional,vessel_id:UUID,version:int) -> Vessel:
+    """
+    Retrieves a historic version of a vessel
+    """
+    return await get_vessel_historic(user, vessel_id, version)
+
+@vessels_controller.get("/{vessel_id}")
+@vessels_controller.get("/{vessel_id}/versions/{version}")
+async def get_vessel_historic(user: AuthOptional,vessel_id: UUID, version: Optional[int]=None) -> Vessel:
     """
     Retrieves a historic version of a vessel
     """
 
     vessel = await get_vessel(vessel_id)
+
 
     if vessel is None:
         raise HTTPException(404, 'Vessel does not exist')
@@ -67,7 +92,7 @@ async def get_vessel_historic(vessel_id: UUID, version: int, user: AuthOptional)
     if not has_vessel_permission(vessel, 'view', user):
         raise HTTPException(403, 'You don\'t have permission to view this vessel')
     
-    if vessel.version == int(version):
+    if version is None or vessel.version == version:
         return vessel
     
     vessel_historic = await get_historic_vessel(vessel_id, version)
@@ -79,6 +104,7 @@ async def get_vessel_historic(vessel_id: UUID, version: int, user: AuthOptional)
 
     return vessel
 
+# Removed in v1
 @vessel_controller.get("/get_by_name/{name}")
 async def get_by_name(name: str, user: AuthOptional) -> list[Vessel]:
     vessels = await get_vessel_by_name(name)
@@ -95,8 +121,21 @@ async def get_test_vessels() -> Vessel:
     vessel.name = 'Test vessel'
     return vessel
 
+
 @vessel_controller.post('/set_permission/{vessel_id}/{unique_user_name}/{permission}')
-async def set_permission(vessel_id: UUID, unique_user_name: str, permission: str, user: AuthOptional):
+async def set_permission_legacy(user:AuthOptional,vessel_id:UUID,unique_user_name:str,permission:str) -> str:
+    permission_data = Permission(
+        unique_user_name=unique_user_name,
+        permission=permission
+    )
+    return await set_permission(user,vessel_id,permission_data)
+
+@vessels_controller.post("/{vessel_id}/permissions")
+async def set_permission(
+    user: AuthOptional,
+    vessel_id: UUID, 
+    permission_data: Permission = Body() # v1 only
+    ) -> str:
 
   vessel = await get_vessel(vessel_id)
 
@@ -106,33 +145,49 @@ async def set_permission(vessel_id: UUID, unique_user_name: str, permission: str
   if not has_vessel_permission(vessel, 'owner', user):
       raise HTTPException(403, 'You are not authorized to perform this action')
   
-  other_user = await get_user_by_unique_name(unique_user_name)
+  other_user = await get_user_by_unique_name(permission_data.unique_user_name)
 
   if other_user is None:
       raise HTTPException(400, 'User you are trying to give permission to does not exist')
   
-  modify_vessel_permission(vessel, permission, other_user.id)
+  modify_vessel_permission(vessel, permission_data.permission, other_user.id)
 
   await update_vessel_without_version_change(vessel)
 
   return 'success'
 
+
 @vessel_controller.post('/create_vessel/{name}')
-async def create_vessel(name: str, user: AuthRequired) -> Vessel:
+async def create_vessel_legacy(user:AuthRequired,name:str) -> Vessel:
     '''
     Creates a new empty vessel with the current user as the owner.
     A auth token can then be created for the vessel
     '''
+    vessel_data = CreateVessel(
+        name=name
+    )
+    return await create_vessel(user, vessel_data)
 
+@vessels_controller.post('/')
+async def create_vessel(user: AuthRequired,vessel_data:CreateVessel=Body()) -> Vessel:
+    '''
+    Creates a new empty vessel with the current user as the owner.
+    A auth token can then be created for the vessel
+    '''
+    vessel_name = vessel_data.name
+
+    if vessel_name is None:
+        raise HTTPException(status_code=422, detail="Vessel name is required")
+        
     permissions = dict()
         
     permissions[user._id] = 'owner'
     
-    vessel = Vessel(_id=uuid4(), _version=0, name=name, parts=list(), permissions=permissions, no_auth_permission=None)
+    vessel = Vessel(_id=uuid4(), _version=0, name=vessel_name, parts=list(), permissions=permissions, no_auth_permission=None)
 
     result_vessel = await create_or_update_vessel(vessel)
 
-    vessel_user = User(_id=result_vessel.id, pw=None, unique_name=str(result_vessel.id), name=name, roles=['vessel'])
+    vessel_user = User(_id=result_vessel.id, pw=None, unique_name=str(result_vessel.id), name=vessel_name, roles=['vessel'])
 
     await create_or_update_user(vessel_user)
 
@@ -140,7 +195,19 @@ async def create_vessel(name: str, user: AuthRequired) -> Vessel:
     
 
 @vessel_controller.post('/create_auth_code/{vessel_id}/{valid_until}')
-async def create_authorization_code(vessel_id: UUID, valid_until: datetime.datetime, user: AuthOptional) -> AuthorizationCode:
+async def create_authorization_code_legacy(user:AuthOptional,vessel_id:UUID,valid_until:datetime.datetime) -> AuthorizationCode:
+    '''
+    Creates a new authorization code for a vessel
+    '''
+
+    auth_code_data = CreateAuthorizationCode(valid_until=valid_until)
+
+    return await create_authorization_code(user, vessel_id, auth_code_data)
+
+@vessels_controller.post("/{vessel_id}/auth_codes")
+async def create_authorization_code(user: AuthOptional,vessel_id: UUID, auth_code_data:CreateAuthorizationCode) -> AuthorizationCode:
+
+    valid_until = auth_code_data.valid_until
 
     if valid_until.tzinfo is None:
         valid_until = valid_until.replace(tzinfo=datetime.UTC)
@@ -162,6 +229,7 @@ async def create_authorization_code(vessel_id: UUID, valid_until: datetime.datet
 
     return code
   
+@vessels_controller.get("/{vessel_id}/auth_codes")
 @vessel_controller.get('/get_auth_codes/{vessel_id}')
 async def get_auth_codes(vessel_id: UUID, user: AuthOptional) -> list[AuthorizationCode]:
     

@@ -24,6 +24,10 @@ class AuthorizationCode(AwareDatetimeModel):
     valid_until: datetime.datetime
 
 
+class CreateAuthorizationCode(AwareDatetimeModel):
+
+    valid_until: datetime.datetime
+
 class TokenPair(BaseModel):
 
     token: str
