@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import RootModel
 from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, verify_role
 
-from app.models.vessel import Vessel, VesselHistoric, CreateVessel
+from app.models.vessel import Vessel, VesselHistoric, CreateVessel, UpdateVessel
 from app.models.authorization_code import AuthorizationCode, generate_auth_code,CreateAuthorizationCode
 from app.models.user import User
 from app.models.permissions import Permission
@@ -244,3 +244,25 @@ async def get_auth_codes(vessel_id: UUID, user: AuthOptional) -> list[Authorizat
   auth_codes = await get_auth_codes_for_user(str(vessel_id))
 
   return auth_codes
+
+
+@vessels_controller.put("/{vessel_id}")
+async def update_vessel(user: AuthOptional, vessel_id:UUID, vessel_update_data:UpdateVessel) -> Vessel:
+    '''
+    Updates a vessel, currently only accepts name changes
+    '''
+
+    vessel = await get_vessel(vessel_id)
+
+    if vessel is None:
+        raise HTTPException(404, 'Vessel does not exist')
+    
+    if not has_vessel_permission(vessel, 'owner', user):
+        raise HTTPException(403, 'You are not authorized to perform this action')
+    
+    if vessel_update_data.name is not None:
+        vessel.name = vessel_update_data.name
+
+    await update_vessel_without_version_change(vessel)
+
+    return vessel
