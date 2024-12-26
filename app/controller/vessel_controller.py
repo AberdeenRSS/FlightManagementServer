@@ -15,7 +15,7 @@ from app.services.auth.jwt_user_info import get_socket_user_info
 from app.services.auth.permission_service import has_vessel_permission, modify_vessel_permission
 from app.services.data_access.auth_code import create_auth_code, get_auth_codes_for_user
 from app.services.data_access.user import create_or_update_user, get_user_by_unique_name
-from app.services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel, get_vessel_by_name, update_vessel_without_version_change
+from app.services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel, get_vessel_by_name, update_vessel_without_version_change, delete_historic_vessel
 
 vessel_controller = APIRouter(
     prefix="/vessel",
@@ -47,6 +47,10 @@ async def registerVessel(data: Vessel, user: AuthRequired) -> Vessel:
     if user is None or UUID(user._id) != data.id:
         raise HTTPException(403, 'The vessel id has to match the current user id')
 
+    for part in data.parts:
+        if part.id is None:
+            part.id = uuid4()
+            
     acc = await create_or_update_vessel(data)
 
     return acc
@@ -77,14 +81,21 @@ async def get_vessel_historic_legacy(user:AuthOptional,vessel_id:UUID,version:in
     return await get_vessel_historic(user, vessel_id, version)
 
 @vessels_controller.get("/{vessel_id}")
+async def get_vessel_controller(user:AuthOptional, vessel_id:UUID) -> Vessel:
+    '''
+    Retreives a vessel and returns the latest version
+    '''
+
+    return await get_vessel_historic(user, vessel_id, None)
+
+
 @vessels_controller.get("/{vessel_id}/versions/{version}")
 async def get_vessel_historic(user: AuthOptional,vessel_id: UUID, version: Optional[int]=None) -> Vessel:
     """
     Retrieves a historic version of a vessel
     """
-
+    
     vessel = await get_vessel(vessel_id)
-
 
     if vessel is None:
         raise HTTPException(404, 'Vessel does not exist')
@@ -252,6 +263,9 @@ async def update_vessel(user: AuthOptional, vessel_id:UUID, vessel_update_data:U
     Updates a vessel, currently only accepts name changes
     '''
 
+    if vessel_update_data.name is None or vessel_update_data.name == '':
+        raise HTTPException(422, 'Name is required to update vessel')
+
     vessel = await get_vessel(vessel_id)
 
     if vessel is None:
@@ -260,9 +274,56 @@ async def update_vessel(user: AuthOptional, vessel_id:UUID, vessel_update_data:U
     if not has_vessel_permission(vessel, 'owner', user):
         raise HTTPException(403, 'You are not authorized to perform this action')
     
-    if vessel_update_data.name is not None:
-        vessel.name = vessel_update_data.name
+    vessel.name = vessel_update_data.name
 
     await update_vessel_without_version_change(vessel)
 
     return vessel
+
+# @vessels_controller.delete("/{vessel_id}")
+# async def delete_vessel(user: AuthOptional,vessel_id:UUID) -> str:
+#     '''
+#     Deletes a vessel
+#     '''
+    
+#     vessel = await get_vessel(vessel_id)
+
+#     if vessel is None:
+#         raise HTTPException(404, 'Vessel does not exist')
+    
+#     if not has_vessel_permission(vessel, 'owner', user):
+#         raise HTTPException(403, 'You are not authorized to perform this action')
+    
+#     result = await delete_all_historic_vessels(vessel_id)
+
+#     if not result:
+#         raise HTTPException(500, 'Failed to delete vessel')
+    
+#     return 'success'
+
+@vessels_controller.delete("/{vessel_id}/versions/{version}")
+async def delete_vessel_historic_by_version_and_id(user: AuthOptional,vessel_id:UUID,version:int) -> str:
+    '''
+    Deletes a historic version of a vessel
+    '''
+    
+    vessel = await get_vessel(vessel_id)
+
+    if vessel is None:
+        raise HTTPException(404, 'Vessel does not exist')
+    
+    if not has_vessel_permission(vessel, 'owner', user):
+        raise HTTPException(403, 'You are not authorized to perform this action')
+    
+    if vessel.version != version:
+        vessel = await get_historic_vessel(vessel_id, version)
+    
+    if vessel is None:
+        raise HTTPException(404, 'Vessel does not exist')
+
+    result = await delete_historic_vessel(vessel_id, version)
+
+    if not result:
+        raise HTTPException(500, 'Failed to delete vessel')
+    
+    return 'success'

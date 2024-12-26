@@ -9,7 +9,7 @@ class CreateVessel(BaseModel):
     name: str
 
 class UpdateVessel(BaseModel):
-    name: Optional[str] = None
+    name: str
     
 class Vessel(BaseModel):
     

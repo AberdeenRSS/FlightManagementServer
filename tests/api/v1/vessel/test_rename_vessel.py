@@ -5,6 +5,7 @@ from app.models.vessel import Vessel
 from tests.auth_helper import get_auth_headers
 from tests.conftest import TEST_USER_UUID
 from uuid import uuid4
+from tests.auth_helper import create_api_user, get_bearer_for_user, get_auth_headers
 
 @pytest.mark.asyncio
 async def test_v1_rename_vessel(test_client: TestClient, test_user_bearer: Any):
@@ -70,3 +71,56 @@ async def test_v1_rename_vessel(test_client: TestClient, test_user_bearer: Any):
     updated_vessel = get_response.json()
 
     assert updated_vessel['name'] == new_vessel_name
+
+@pytest.mark.asyncio
+async def test_v1_rename_vessel_unauthorized(test_client: TestClient, test_user_bearer):
+    """Test that users without owner permission cannot rename vessels"""
+    # Create vessel with first user
+    bearer = await test_user_bearer
+    second_user = await create_api_user(uuid4())
+    second_user_bearer = await get_bearer_for_user(second_user, test_client)
+
+    
+    vessel = test_client.post(
+        f'/v1/vessels/',
+        headers=get_auth_headers(bearer),
+        json={'name': 'Original Name'}
+    ).json()
+
+    rename_response = test_client.put(
+        f"/v1/vessels/{vessel['_id']}",
+        headers=get_auth_headers(second_user_bearer),
+        json={'name': 'Unauthorized Change'}
+    )
+
+    assert rename_response.status_code == 403
+
+@pytest.mark.asyncio
+async def test_v1_rename_vessel_invalid_data(test_client: TestClient, test_user_bearer: Any):
+    """Test renaming with invalid data"""
+    bearer = await test_user_bearer
+    
+    # Create a vessel
+    vessel = test_client.post(
+        f'/v1/vessels/',
+        headers=get_auth_headers(bearer),
+        json={'name': 'Test Vessel'}
+    ).json()
+
+    # Empty string name
+    rename_response = test_client.put(
+        f"/v1/vessels/{vessel['_id']}",
+        headers=get_auth_headers(bearer),
+        json={'name': ''}
+    )
+    assert rename_response.status_code == 422
+
+    # No name in request
+    rename_response = test_client.put(
+        f"/v1/vessels/{vessel['_id']}",
+        headers=get_auth_headers(bearer),
+        json={}
+    )
+    assert rename_response.status_code == 422
+
+
