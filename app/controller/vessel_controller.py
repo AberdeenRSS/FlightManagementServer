@@ -63,13 +63,13 @@ async def get_all(user: AuthOptional,name: Optional[str] = Query(default=None, d
     Returns all vessels known to server
     """
 
-    vessels = await get_all_vessels()
+    if name is not None and name != '':
+        vessels = await get_vessel_by_name(name.lower())
+    else:
+        vessels = await get_all_vessels()
+
     vessels = [v for v in vessels if has_vessel_permission(v, 'view', user)]
-    
-    # Then filter by name if provided
-    if name:
-        vessels = [v for v in vessels if name.lower() in v.name.lower()]  # Case-insensitive search
-    
+
     return vessels
 
 
