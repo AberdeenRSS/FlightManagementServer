@@ -82,7 +82,6 @@ async def get_all(vessel_id: UUID, user: AuthOptional, name: Optional[str] = Que
 
     flights = [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
 
-    print("Name variable: ", name)
     if name:
         name = str(name).lower()
         flights = [f for f in flights if name in f.name.lower()]
