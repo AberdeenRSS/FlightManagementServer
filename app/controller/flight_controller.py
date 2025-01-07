@@ -64,11 +64,11 @@ async def get_all_legacy(vessel_id:UUID,user:AuthOptional) -> list[Flight]:
     """
     Fetches all flights that the passed vessel ever performed
     """
-    return await get_all(vessel_id, user)
+    return await get_all(vessel_id, user,name=None)
 
 
 @vessels_controller.get("/{vessel_id}/flights",tags=["v1/flights"])
-async def get_all(vessel_id: UUID, user: AuthOptional, name: Optional[str] = Query(default=None, description="Filter flights by name")) -> list[Flight]:
+async def get_all(vessel_id: UUID, user: AuthOptional, name: Optional[str] = Query(default=None, description="Filter flights by name", min_length=1)) -> list[Flight]:
     """
     Fetches all flights that the passed vessel ever performed
     """
@@ -83,7 +83,7 @@ async def get_all(vessel_id: UUID, user: AuthOptional, name: Optional[str] = Que
     flights = [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
 
     print("Name variable: ", name)
-    if name is not None and name != '':
+    if name:
         name = str(name).lower()
         flights = [f for f in flights if name in f.name.lower()]
     return flights
