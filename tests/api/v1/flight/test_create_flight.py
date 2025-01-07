@@ -9,21 +9,39 @@ from datetime import datetime, timedelta
 from datetime import timezone
 
 @pytest.mark.asyncio
-async def test_create_flight(test_client:TestClient,test_user_bearer):
+async def test_v1_create_flight(test_client:TestClient,test_user_bearer):
     # Bearer token for test user
     bearer = await test_user_bearer
 
     vessel_name = 'Testing Vessel'
+    
+    request_body = {
+        'name': vessel_name,
+    }
 
     # Create a test vessel in the UI
-    create_vessel_response = test_client.post(f'/vessel/create_vessel/{vessel_name}', 
-                                            headers=get_auth_headers(bearer))
+    create_vessel_response = test_client.post(
+        f'/v1/vessels/', 
+        headers=get_auth_headers(bearer),
+        json=request_body
+    )
+
     assert create_vessel_response.status_code == 200
     vessel = create_vessel_response.json()
     
     # Get Auth code for the vessel hardware to register with
     valid_until = datetime.now(timezone.utc) + timedelta(minutes=1)
-    auth_code_response = test_client.post(f"/vessel/create_auth_code/{vessel['_id']}/{valid_until}",headers=get_auth_headers(bearer))
+
+    auth_code_data = {
+        'valid_until': valid_until.isoformat()
+    }
+
+    auth_code_response = test_client.post(
+        f"/v1/vessels/{vessel['_id']}/auth_codes",
+        headers=get_auth_headers(bearer),
+        json=auth_code_data
+    )
+
     assert auth_code_response.status_code == 200
     auth_code = auth_code_response.json()['_id']
 
@@ -42,7 +60,7 @@ async def test_create_flight(test_client:TestClient,test_user_bearer):
     }
 
     register_vessel_response = test_client.post(
-        f"/vessel/register",
+        f"/v1/vessels/register",
         json=hardware_vessel,
         headers=get_auth_headers(vessel_bearer_token)
     )
@@ -61,7 +79,7 @@ async def test_create_flight(test_client:TestClient,test_user_bearer):
         "available_commands":{}
     }
 
-    create_flight_response = test_client.post('/flight/create', 
+    create_flight_response = test_client.post('/v1/flights/', 
                                             json=first_flight, 
                                             headers=get_auth_headers(vessel_bearer_token))
 

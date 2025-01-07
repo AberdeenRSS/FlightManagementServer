@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timezone
 from io import BytesIO
 import math
 import time
-from typing import Iterable, cast
+from typing import Iterable, Optional, cast
 import uuid
 from itertools import groupby
 from app.helper.measurement_binary_helper import parse_binary_measurements
@@ -16,7 +16,8 @@ from app.services.auth.permission_service import has_flight_permission
 from app.services.data_access.flight import get_flight, create_or_update_flight
 from app.services.data_access.flight_data_compact import get_flight_data_in_range, insert_flight_data as insert_flight_data_compact, get_aggregated_flight_data as get_aggregated_flight_data_compact, resolutions
 from app.services.data_access.vessel import get_vessel
-
+from app.controller.flight_controller import flights_controller
+from fastapi import Query
 
 flight_data_controller = APIRouter(
     prefix="/flight_data",
@@ -24,7 +25,7 @@ flight_data_controller = APIRouter(
     dependencies=[],
 )
 
-
+@flights_controller.post("/{flight_id}/data/binary")
 @flight_data_controller.post("/report_binary/{flight_id}")
 async def report_binary(flight_id: uuid.UUID, request: Request, user: AuthRequired):
     """
@@ -77,7 +78,7 @@ async def report_binary(flight_id: uuid.UUID, request: Request, user: AuthRequir
     return 'success'
 
 
-
+@flights_controller.post("/{flight_id}/data/compact")
 @flight_data_controller.post("/report_compact/{flight_id}")
 async def report_flight_data_compact(flight_id: uuid.UUID, measurements: list[FlightMeasurementCompact], user: AuthRequired):
     """
@@ -131,6 +132,12 @@ async def report_flight_data_compact(flight_id: uuid.UUID, measurements: list[Fl
 
     return 'success'
 
+@flights_controller.get("/{flight_id}/data")
+async def get_flight_data(user:AuthOptional,flight_data:uuid.UUID,vessel_part:uuid.UUID=Query(),start:str=Query(),end:str=Query(),resolution:Optional[str]=Query(default=None)):
+    if resolution:
+        return await get_aggregated(flight_data, vessel_part, resolution, start, end, user)
+    else:
+        return await getRange(flight_data, vessel_part, start, end, user)
 
 @flight_data_controller.get("/get_aggregated_range/{flight_id}/{vessel_part}/{resolution}/{start}/{end}")
 async def get_aggregated(flight_id: uuid.UUID, vessel_part: uuid.UUID, resolution: str, start: str, end: str, user: AuthOptional) -> list[FlightMeasurementCompactDB]:
