@@ -82,8 +82,9 @@ async def get_all(vessel_id: UUID, user: AuthOptional, name: Optional[str] = Que
 
     flights = [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
 
-    if name:
-        flights = [f for f in flights if name.lower() in f.name.lower()]
+    if name is not None:
+        name = str(name).lower()
+        flights = [f for f in flights if name in f.name.lower()]
     return flights
 
 
