@@ -69,7 +69,14 @@ class Flight(AwareDatetimeModel):
     User id permission pairs of who has what permission on the vessel
     """
 
-    no_auth_permission: Union[None, str] = 'owner'
+    no_auth_permission: Union[None, str] = 'none'
     """
     The permission everyone has regardless of if they are logged in or not
+    """
+
+
+class UpdateFlight(BaseModel):
+    name: str
+    """
+    The name of the flight
     """

@@ -41,6 +41,7 @@ def has_flight_permission(flight: Flight, vessel: Vessel, permission: str, user:
     '''
 
     no_auth_permission = get_permission_index(flight.no_auth_permission or 'none')
+    
 
     user_permission = 0
 
