@@ -98,7 +98,6 @@ async def delete_vessel_by_id(_id:UUID):
     
     result = await vessel_collection.delete_one({'_id': _id})
 
-    # Return true if record was deleted
     return result.deleted_count > 0
 
 async def delete_historic_vessel(_id:UUID, _version:int):

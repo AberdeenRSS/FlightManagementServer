@@ -53,5 +53,9 @@ async def get_flight(_id: UUID) -> Union[Flight, None]:
 
     return None
 
+async def delete_flight_by_id(_id:UUID) -> bool:
+    collection = get_flight_collection()
+    result = await collection.delete_one({'_id': _id})
+    return result.deleted_count > 0
 
     
