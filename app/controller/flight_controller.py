@@ -158,8 +158,14 @@ async def get_flight_controller(user: AuthOptional, flight_id: UUID) -> Flight:
     
     return flight
 
+
 @flights_controller.put("/{flight_id}")
 async def update_flight(user: AuthOptional, flight_id: UUID, flight_data:UpdateFlight=Body()):
+    """
+    Currently only for renaming the flight.
+
+    Update UpdateFlight model in future to allow more values to be updated
+    """
     flight = await get_flight(flight_id)
 
     if flight is None:
