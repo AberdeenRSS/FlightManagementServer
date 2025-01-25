@@ -16,6 +16,10 @@ from starlette.types import Message
 from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
 class GZipedMiddleware(BaseHTTPMiddleware):
     async def set_body(self, request: Request):
         receive_ = await request._()
