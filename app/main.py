@@ -1,4 +1,8 @@
+from collections import namedtuple
+from contextlib import asynccontextmanager
+import copy
 import gzip
+import paho.mqtt.client as mqtt
 from app.controller.auth_controller import auth_controller
 from app.controller.command_controller import command_controller
 from app.controller.socketio.init import init_socket_io_controller
@@ -7,6 +11,8 @@ from app.controller.user_controller import user_controller
 from app.controller.flight_data_controller import flight_data_controller
 from app.controller.flight_controller import flight_controller
 from app.helper.json_helper import PlainJsonSerializer
+# from app.mqtt.oauth_plugin import OAuthPlugin
+from app.mqtt.init_mqtt import start_mqtt, stop_mqtt
 from app.services.data_access.mongodb.mongodb_connection import init_app
 from fastapi import FastAPI
 import socketio
@@ -63,10 +69,20 @@ def socketio_mount(
 
     return sio
 
+@asynccontextmanager
+async def _lifetime(app: FastAPI):
+    
+    try:
+        start_mqtt(app, 'localhost')
+        yield
+    finally:
+        stop_mqtt()
+    
+
 # Init socketio app
 
 # Init fast api
-app = FastAPI()
+app = FastAPI(lifespan=_lifetime)
 # app.add_middleware(GZipedMiddleware)
 
 init_app(app)
@@ -90,37 +106,46 @@ sio = socketio_mount(app)
 
 init_socket_io_controller(sio)
 
-# Define MQTT broker configuration
-config = {
-    "listeners": {
-        "default": {
-            "type": "tcp",
-            "bind": "0.0.0.0:1883",
-        },
-    },
-    "sys_interval": 60,
-    "topic-check": {
-        "enabled": True,
-        "plugins": ["auth.anonymous"],
-    },
-}
+# # Define MQTT broker configuration
+# config = {
+#     "listeners": {
+#         "default": {
+#             "type": "tcp",
+#             "bind": "0.0.0.0:1883",
+#         },
+#     },
+#     "sys_interval": 60,
+#     "topic-check": {
+#         "enabled": False,
+#         "plugins": ['oauth'],
+#     },
+# }
 
-broker = Broker(config)
+# broker = Broker(config)
+
+# Plugin = namedtuple("Plugin", ["name", "ep", "object"])
+
+
+# plugin_context = copy.copy(broker.plugins_manager.app_context)
+# obj = OAuthPlugin(plugin_context)
+# plugin = Plugin('auth.oauth', None, obj)
+
+# broker.plugins_manager.plugins.append(plugin)
 
 # Create an async function to start the broker
-@app.on_event("startup")
-async def start_broker():
-    await broker.start()
+# @app.on_event("startup")
+# async def start_broker():
+#     await broker.start()
 
-# Create an async function to stop the broker
-@app.on_event("shutdown")
-async def stop_broker():
-    await broker.shutdown()
+# # Create an async function to stop the broker
+# @app.on_event("shutdown")
+# async def stop_broker():
+#     await broker.shutdown()
 
 
 # Use FastAPI to serve your MQTT broker
 
-# init_app(app)
+# init_app(app) 
 
 # if __name__ == '__main__':
 #     start_fast_api()

@@ -2,6 +2,7 @@ import datetime
 from os import environ
 from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi.responses import PlainTextResponse
 from app.middleware.auth.requireAuth import user_required
 
 from app.services.auth.jwt_user_info import UserInfo
@@ -14,6 +15,8 @@ from ..services.auth.jwt_auth_service import generate_access_token, generate_ref
 
 from ..services.data_access.user import get_user, get_user_by_unique_name, create_or_update_user
 from ..services.data_access.auth_code import get_code, delete_code
+
+from ..services.auth.jwt_auth_service import get_public_key
 
 client_id = environ.get('FLIGHT_MANAGEMENT_SERVER_CLIENT_ID')
 client_secret = environ.get('FLIGHT_MANAGEMENT_SERVER_CLIENT_SECRET')
@@ -31,6 +34,12 @@ async def generate_token_with_refresh(user: User):
     
     return TokenPair(token=generate_access_token(user), refresh_token=refresh_token.id)
 
+@auth_controller.get('/public_key', response_class=PlainTextResponse)
+def public_key() -> str:
+
+    key =  get_public_key()
+
+    return key
 
 @auth_controller.post('/register')
 async def register(data: RegisterModel) -> TokenPair:
@@ -79,7 +88,7 @@ async def authorization_code_flow(data: RefreshTokenModel) -> TokenPair:
     if token is None:
         raise HTTPException(401, 'Invalid token')
     
-    if datetime.datetime.now(datetime.UTC).timestamp() > token.valid_until.timestamp():
+    if datetime.datetime.now(datetime.timezone.utc).timestamp() > token.valid_until.timestamp():
         await delete_code(token_value)
         raise HTTPException(401, 'Token expired')
     
