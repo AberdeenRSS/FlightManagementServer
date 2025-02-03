@@ -49,3 +49,6 @@ async def test_create_vessel_auth_code(test_client: TestClient, test_user_bearer
 
     assert disallowed_auth_code_response.status_code == 403
     assert 'token' not in disallowed_auth_code_response.json() 
+
+
+

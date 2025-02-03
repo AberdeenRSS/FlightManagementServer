@@ -1,17 +1,18 @@
 from datetime import datetime, timezone
 import json
-from typing import Annotated, cast
+from typing import Annotated, Optional, cast
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from ..middleware.auth.requireAuth import AuthOptional, user_optional, user_required, verify_role
 from jsonschema import validate, ValidationError
-from ..models.command import Command
-from ..models.flight import FLIGHT_MINIMUM_HEAD_TIME, FLIGHT_DEFAULT_HEAD_TIME
-from ..services.auth.jwt_user_info import UserInfo
-from ..services.auth.permission_service import has_flight_permission
-from ..services.data_access.command import get_commands_in_range, insert_commands, insert_or_update_commands
-from ..services.data_access.flight import get_flight, create_or_update_flight
-from ..services.data_access.vessel import get_vessel
+from app.models.command import Command
+from app.models.flight import FLIGHT_MINIMUM_HEAD_TIME, FLIGHT_DEFAULT_HEAD_TIME
+from app.services.auth.jwt_user_info import UserInfo
+from app.services.auth.permission_service import has_flight_permission
+from app.services.data_access.command import get_commands_in_range, insert_commands, insert_or_update_commands
+from app.services.data_access.flight import get_flight, create_or_update_flight
+from app.services.data_access.vessel import get_vessel
+from app.controller.flight_controller import flights_controller
 
 command_controller = APIRouter(
     prefix="/command",
@@ -19,6 +20,7 @@ command_controller = APIRouter(
     dependencies=[],
 )
 
+@flights_controller.post("/{flight_id}/commands")
 @command_controller.post("/dispatch/{flight_id}")
 async def dispatch_commands(flight_id: UUID, commands: list[Command], user: Annotated[UserInfo, Depends(user_optional)]):
     """
@@ -89,6 +91,7 @@ async def dispatch_commands(flight_id: UUID, commands: list[Command], user: Anno
 
     return 'success'
 
+@flights_controller.post("/{flight_id}/commands/confirm")
 @command_controller.post("/confirm/{flight_id}")
 async def confirm_command(flight_id: UUID, commands: list[Command], user: Annotated[UserInfo, Depends(user_required)]):
     """
@@ -150,6 +153,10 @@ async def confirm_command(flight_id: UUID, commands: list[Command], user: Annota
     await insert_or_update_commands(commands, flight_id, False)
 
     return 'success'
+
+@flights_controller.get("/{flight_id}/commands")
+async def get_commands(user:AuthOptional,flight_id:UUID,start:datetime=Query(),end:datetime=Query(),vessel_part:str=Query(default='all'),command_type:str=Query(default='all'),):
+    return await get_range(flight_id, start, end, command_type, vessel_part, user)
 
 @command_controller.get("/get_range/{flight_id}/{start}/{end}/{command_type}/{vessel_part}")
 async def get_range(flight_id: UUID, start: datetime, end: datetime, command_type: str, vessel_part: str, user: AuthOptional) -> list[Command]:

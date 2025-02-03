@@ -6,10 +6,10 @@ import paho.mqtt.client as mqtt
 from app.controller.auth_controller import auth_controller
 from app.controller.command_controller import command_controller
 from app.controller.socketio.init import init_socket_io_controller
-from app.controller.vessel_controller import vessel_controller
+from app.controller.vessel_controller import vessel_controller,vessels_controller
 from app.controller.user_controller import user_controller
 from app.controller.flight_data_controller import flight_data_controller
-from app.controller.flight_controller import flight_controller
+from app.controller.flight_controller import flight_controller, flights_controller
 from app.helper.json_helper import PlainJsonSerializer
 # from app.mqtt.oauth_plugin import OAuthPlugin
 from app.mqtt.init_mqtt import start_mqtt, stop_mqtt
@@ -23,6 +23,9 @@ from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from amqtt.broker import Broker
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 class GZipedMiddleware(BaseHTTPMiddleware):
     async def set_body(self, request: Request):
@@ -90,6 +93,8 @@ init_app(app)
 app.include_router(auth_controller)
 app.include_router(command_controller)
 app.include_router(vessel_controller)
+app.include_router(vessels_controller) # /v1/
+app.include_router(flights_controller) # /v1/
 app.include_router(flight_controller)
 app.include_router(flight_data_controller)
 app.include_router(user_controller)

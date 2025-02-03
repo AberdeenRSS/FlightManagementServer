@@ -1,9 +1,16 @@
-from typing import Any, TypeVar, Union, cast
+from typing import Any, TypeVar, Union, cast, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field
 
+
 from ..models.vessel_part import VesselPart
 
+class CreateVessel(BaseModel):
+    name: str
+
+class UpdateVessel(BaseModel):
+    name: str
+    
 class Vessel(BaseModel):
     
     id: UUID = Field(alias='_id', alias_priority=1, default=None)

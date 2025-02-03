@@ -1,14 +1,16 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Annotated, Optional
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, user_optional, user_required, verify_role
-from app.models.flight import Flight, FLIGHT_DEFAULT_HEAD_TIME
+from app.models.flight import Flight, FLIGHT_DEFAULT_HEAD_TIME, UpdateFlight
 from app.services.auth.jwt_user_info import UserInfo, get_socket_user_info
 from app.services.auth.permission_service import has_flight_permission, modify_flight_permission
-from app.services.data_access.flight import create_or_update_flight, get_all_flights_for_vessels, get_all_flights_for_vessels_by_name, get_flight
+from app.services.data_access.flight import create_or_update_flight, delete_flight_by_id, get_all_flights_for_vessels, get_all_flights_for_vessels_by_name, get_flight
 from app.services.data_access.user import get_user_by_unique_name
 from app.services.data_access.vessel import get_vessel 
+from app.controller.vessel_controller import vessels_controller
+from app.models.permissions import Permission
 
 
 flight_controller = APIRouter(
@@ -17,7 +19,14 @@ flight_controller = APIRouter(
     dependencies=[],
 )
 
+flights_controller = APIRouter(
+    prefix="/v1/flights",
+    tags=["v1/flights"],
+    dependencies=[],
+)
+
 # Method for a vessel to register
+@flights_controller.post("/")
 @flight_controller.post("/create")
 async def create_flight(flight: Flight, user: AuthRequired) -> Flight:
     """
@@ -49,8 +58,17 @@ async def create_flight(flight: Flight, user: AuthRequired) -> Flight:
 
     return acc
 
+
 @flight_controller.get("/get_all/{vessel_id}")
-async def get_all(vessel_id: UUID, user: AuthOptional) -> list[Flight]:
+async def get_all_legacy(vessel_id:UUID,user:AuthOptional) -> list[Flight]:
+    """
+    Fetches all flights that the passed vessel ever performed
+    """
+    return await get_all(vessel_id, user,name=None)
+
+
+@vessels_controller.get("/{vessel_id}/flights",tags=["v1/flights"])
+async def get_all(vessel_id: UUID, user: AuthOptional, name: Optional[str] = Query(default=None, description="Filter flights by name", min_length=1)) -> list[Flight]:
     """
     Fetches all flights that the passed vessel ever performed
     """
@@ -61,7 +79,14 @@ async def get_all(vessel_id: UUID, user: AuthOptional) -> list[Flight]:
         raise HTTPException(400, 'Vessel does not exist')
 
     flights = await get_all_flights_for_vessels(vessel_id)
-    return [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
+
+    flights = [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
+
+    if name:
+        name = str(name).lower()
+        flights = [f for f in flights if name in f.name.lower()]
+    return flights
+
 
 @flight_controller.get("/get_by_name/{vessel_id}/{name}")
 async def get_by_name(vessel_id: UUID, name: str, user: AuthOptional) -> list[Flight]:
@@ -78,7 +103,16 @@ async def get_by_name(vessel_id: UUID, name: str, user: AuthOptional) -> list[Fl
     return [f for f in flights if has_flight_permission(f, vessel, 'view', user)]
 
 @flight_controller.post('/set_permission/{flight_id}/{unique_user_name}/{permission}')
-async def set_permission(flight_id: UUID, unique_user_name: str, permission: str, user: AuthOptional):
+async def set_permission_legacy(flight_id:UUID,unique_user_name:str,permission:str,user:AuthOptional):
+    permission_data = Permission(
+        unique_user_name=unique_user_name,
+        permission=permission
+    )
+    return await set_permission(user,flight_id,permission_data)
+
+
+@flights_controller.post("/{flight_id}/permissions")
+async def set_permission(user: AuthOptional, flight_id: UUID, permission_data: Permission=Body()):
 
     flight = await get_flight(flight_id)
 
@@ -92,7 +126,10 @@ async def set_permission(flight_id: UUID, unique_user_name: str, permission: str
     
     if not has_flight_permission(flight, vessel, 'owner', user):
         raise HTTPException(403, 'You don\'t have the required permission to access the flight')
-  
+    
+    unique_user_name = permission_data.unique_user_name
+    permission = permission_data.permission
+
     other_user = await get_user_by_unique_name(unique_user_name)
 
     if other_user is None:
@@ -101,5 +138,67 @@ async def set_permission(flight_id: UUID, unique_user_name: str, permission: str
     modify_flight_permission(flight, permission, other_user.id)
 
     await create_or_update_flight(flight)
+
+    return 'success'
+
+@flights_controller.get("/{flight_id}")
+async def get_flight_controller(user: AuthOptional, flight_id: UUID) -> Flight:
+    flight = await get_flight(flight_id)
+
+    if flight is None:
+        raise HTTPException(404, 'Flight does not exist')
+    
+    vessel = await get_vessel(flight.vessel_id)
+
+    if vessel is None:
+        raise HTTPException(404, 'Vessel does not exist')
+    
+    if not has_flight_permission(flight, vessel, 'view', user):
+        raise HTTPException(403, 'You don\'t have the required permission to access the flight')
+    
+    return flight
+
+
+@flights_controller.put("/{flight_id}")
+async def update_flight(user: AuthOptional, flight_id: UUID, flight_data:UpdateFlight=Body()):
+    """
+    Currently only for renaming the flight.
+
+    Update UpdateFlight model in future to allow more values to be updated
+    """
+    flight = await get_flight(flight_id)
+
+    if flight is None:
+        raise HTTPException(404, 'Flight does not exist')
+    
+    vessel = await get_vessel(flight.vessel_id)
+
+    if vessel is None:
+        raise HTTPException(404, 'Vessel does not exist')
+    
+    if not has_flight_permission(flight, vessel, 'owner', user):
+        raise HTTPException(403, 'You don\'t have the required permission to access the flight')
+    
+    flight.name = flight_data.name
+    flight = await create_or_update_flight(flight)
+
+    return flight
+
+@flights_controller.delete("/{flight_id}")
+async def delete_flight_controller(user: AuthOptional, flight_id:UUID):
+    flight = await get_flight(flight_id)
+
+    if flight is None:
+        raise HTTPException(404, 'Flight does not exist')
+    
+    vessel = await get_vessel(flight.vessel_id)
+
+    if vessel is None:
+        raise HTTPException(404, 'Vessel does not exist')
+    
+    if not has_flight_permission(flight, vessel, 'owner', user):
+        raise HTTPException(403, 'You don\'t have the required permission to access the flight')
+    
+    await delete_flight_by_id(flight_id)
 
     return 'success'

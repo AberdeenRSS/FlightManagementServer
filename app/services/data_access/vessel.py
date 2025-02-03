@@ -92,3 +92,29 @@ async def get_historic_vessel(_id: UUID, _version: int):
         return VesselHistoric(**vessels_raw[0])
 
     return None
+
+async def delete_vessel_by_id(_id:UUID):
+    vessel_collection = get_vessel_collection()
+    
+    result = await vessel_collection.delete_one({'_id': _id})
+
+    return result.deleted_count > 0
+
+async def delete_historic_vessel(_id:UUID, _version:int):
+    vessel_collection = get_historic_vessel_collection()
+
+    result = await vessel_collection.delete_one({'_id.version': int(_version), '_id.id': _id})
+
+    return result.deleted_count > 0
+    
+async def delete_all_historic_vessels(_id: UUID) -> bool:
+    """
+    Deletes all historic vessels for a vessel of _id
+    """
+    vessel_collection = get_historic_vessel_collection()
+    
+    result = await vessel_collection.delete_many({
+        '_id.id': _id
+    })
+    
+    return result.deleted_count > 0
