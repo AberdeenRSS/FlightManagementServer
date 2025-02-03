@@ -1,5 +1,6 @@
 import asyncio
 import threading
+from time import sleep
 from fastapi import FastAPI
 import paho.mqtt.client as mqtt
 
@@ -7,6 +8,7 @@ from app.mqtt.measurments import process_measurements
 from app.services.auth.jwt_auth_service import get_self_access_token
 
 MAX_PACKETS = 2000
+RETRY_DELAY = 5 # Retry delay on failed connection
 
 mqtt_stop_token = False
 mqtt_thread: threading.Thread | None = None
@@ -40,7 +42,8 @@ def mqtt_main(host):
 
             asyncio.run(mqtt_asyncio_loop(client))
         except Exception as e:
-            print(f'Mqtt failed: {e}')
+            print(f'Mqtt failed: {e}. Retrying in {RETRY_DELAY}s')
+            sleep(RETRY_DELAY)
     
     print('Mqtt shutting down')
 
