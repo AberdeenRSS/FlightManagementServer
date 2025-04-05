@@ -1,15 +1,19 @@
-from datetime import datetime, timezone
-from typing import Type, Union
-import uuid
-from pydantic import BaseModel, Field, create_model
+import datetime
+from typing import Optional, Tuple, Union
+from uuid import UUID
+from pydantic import BaseModel, Field
 
 from app.helper.datetime_model import AwareDatetimeModel
 
+NumericalMeasurementTypes = int | float | bool
+
+MeasurementTypes = str | NumericalMeasurementTypes
+
 class FlightMeasurementSeriesIdentifier(BaseModel):
     
-    flight_id: uuid.UUID = Field(alias='_flight_id', alias_priority=1, default=None)
+    flight_id: UUID = Field(alias='_flight_id', alias_priority=1, default=None)
 
-    vessel_part_id: uuid.UUID = Field(alias='_vessel_part_id', alias_priority=1, default=None)
+    vessel_part_id: UUID = Field(alias='_vessel_part_id', alias_priority=1, default=None)
 
 class FlightMeasurementDescriptor(BaseModel):
     """
@@ -18,53 +22,60 @@ class FlightMeasurementDescriptor(BaseModel):
 
     name: str
 
-    type: str
+    type: str | list[tuple[str, str]]
     """The type of the that measurement. Can be a "string", "int" or a "float" """
 
-class FlightMeasurement(AwareDatetimeModel):
-    """A single measurement relayed back by the model
-    """
-    
-    datetime_value: Union[datetime, None] = Field(alias='_datetime', alias_priority=1, default=None)
-    """The datetime the measurement is for (primary index)"""
 
-    measured_values: dict[str, Union[str, int, float]] = Field(default_factory=dict)
-    """The measured values themselves"""
+class FlightMeasurement(BaseModel): 
 
-    id: Union[uuid.UUID, None] = Field(alias='_id', alias_priority=1, default=None)
+    part_index: int
 
-    part_id: Union[uuid.UUID, None] = None
-    """Optional part id. Used to send the part over the network, not committed to database"""
+    m_index: int
 
-def getConcreteMeasuredValuesType(schemas: list[FlightMeasurementDescriptor]):
-    """
-    Creates a new marshmallow definition according to the past schemas.
-    This definition will have the measurement name as the property key
-    and the value as the passed type
-    """
+    measurements: list[Tuple[float, list[MeasurementTypes]]] = Field(default_factory=list)
 
-    res_types = dict()
+class FlightMeasurementAggregated(AwareDatetimeModel):
 
-    for schema in schemas:
-        if schema.type == 'string':
-            res_types[schema.name] = (str, ...)
-        elif schema.type == 'int':
-            res_types[schema.name] = (int, ...)
-        elif schema.type == 'float':
-            res_types[schema.name] = (float, ...)
-        else:
-            raise NotImplementedError(f'Schema type {schema.type} not supported')
-        
-    return create_model(str(uuid.uuid4()).upper(), **res_types)
-        
+    p_index: int
 
-def getConcreteMeasurementSchema(schema: list[FlightMeasurementDescriptor]) -> Type[FlightMeasurement]:
-    """
-    Creates a new FlightMeasurement schema based on the requested properties.
-    Replaces the `FlightMeasurement.measured_values` with a nested schema
-    which has the correct keys and value types for validation
-    """
+    m_index: int
 
-    measurement_model = getConcreteMeasuredValuesType(schema)
+    part_id: UUID | None
 
-    return create_model(str(uuid.uuid4()).upper(), __base__ = FlightMeasurement, measured_values=(measurement_model, ...))
+    series_name: str | None
+
+    measurements: list[Tuple[float, list[MeasurementTypes] | MeasurementTypes]] = Field(default_factory=list)
+
+    start_time: datetime.datetime = Field(alias='_start_time', alias_priority=1, default=datetime.datetime.fromtimestamp(0)) 
+
+    end_time: datetime.datetime = Field(alias='_end_time', alias_priority=1, default=datetime.datetime.fromtimestamp(0)) 
+
+    min: list[NumericalMeasurementTypes] | NumericalMeasurementTypes | None
+
+    avg: list[NumericalMeasurementTypes] | NumericalMeasurementTypes | None
+
+    max: list[NumericalMeasurementTypes] | NumericalMeasurementTypes | None
+
+    first: Tuple[float, list[MeasurementTypes] | MeasurementTypes] 
+
+    last:  Tuple[float, list[MeasurementTypes] | MeasurementTypes]
+
+
+class FlightMeasurementDB(AwareDatetimeModel):
+
+    p_index: int
+
+    m_index: int
+
+    measurements: list[Tuple[float, list[MeasurementTypes] | MeasurementTypes]] = Field(default_factory=list)
+
+    start_time: datetime.datetime = Field(alias='_start_time', alias_priority=1, default=datetime.datetime.fromtimestamp(0)) 
+
+    end_time: datetime.datetime = Field(alias='_end_time', alias_priority=1, default=datetime.datetime.fromtimestamp(0)) 
+
+    min: list[NumericalMeasurementTypes] | NumericalMeasurementTypes | None
+
+    avg: list[NumericalMeasurementTypes] | NumericalMeasurementTypes | None
+
+    max: list[NumericalMeasurementTypes] | NumericalMeasurementTypes | None
+

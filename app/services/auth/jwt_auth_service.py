@@ -33,14 +33,15 @@ def get_public_key():
   return public_key
 
 
-def generate_access_token(user: User):
+def generate_access_token(user: User, resources: list[tuple[str, str]]):
   payload = {
     "iss": ISSUER,
     "exp": time.time() + LIFE_SPAN,
     "name": user.name,
     "unique_name": user.unique_name,
     "uid": str(user.id),
-    "roles": user.roles
+    "roles": user.roles,
+    "resources": resources
   }
 
   access_token = jwt.encode(payload, get_private_key(), algorithm = 'RS256')

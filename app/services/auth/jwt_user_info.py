@@ -1,5 +1,7 @@
 from typing import Any, Union
 
+from app.models.user import User
+
 class UserInfo:
     # A unique id of the user
     _id: str
@@ -11,6 +13,14 @@ class UserInfo:
     token: dict[str, Any]
 
 socket_users = dict[str, UserInfo]()
+
+def user_info_from_user(user: User):
+    user_info = UserInfo()
+    user_info._id = str(user.id)
+    user_info.name = user.name
+    user_info.roles = user.roles
+
+    return user_info
 
 def user_from_token(raw_token: dict) -> UserInfo:
     user = UserInfo()

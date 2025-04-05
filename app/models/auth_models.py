@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from typing import Union
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RegisterModel(BaseModel):
@@ -18,3 +20,5 @@ class LoginModel(BaseModel):
 
 class RefreshTokenModel(BaseModel):
     token: str
+
+    resources: list[tuple[str, UUID]] = Field(default_factory=list)

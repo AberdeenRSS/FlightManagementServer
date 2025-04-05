@@ -65,13 +65,7 @@ class Command(AwareDatetimeModel):
 class CommandInfo(BaseModel):
     """Info on th shape of commands"""
 
-    supported_on_vehicle_level: bool = False
-    """This command can be dispatched for the entire vessel without specifying a part"""
+    name: str
 
-    supporting_parts: list[UUID] = Field(default_factory=list)
-    """All parts that can used for this command"""
-
-    payload_schema: Union[None, dict[str, Any]] = Field(default_factory=lambda: None)
-
-    response_schema: Union[None, dict[str, Any]] = Field(default_factory=lambda: None)
+    payload_schema: None | str | list[tuple[str, str]]
 

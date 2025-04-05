@@ -1,16 +1,22 @@
+import asyncio
 import datetime
 from os import environ
-from typing import Annotated
+from typing import Annotated, Any, Coroutine
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from app.middleware.auth.requireAuth import user_required
 
-from app.services.auth.jwt_user_info import UserInfo
+from app.models.flight import Flight
+from app.models.vessel import Vessel
+from app.services.auth.jwt_user_info import UserInfo, user_info_from_user
+from app.services.auth.permission_service import has_flight_permission
+from app.services.data_access.flight import get_flight
+from app.services.data_access.vessel import get_vessel
 from ..models.auth_models import LoginModel, RefreshTokenModel, RegisterModel
 from ..models.authorization_code import TokenPair
 from ..models.user import User, hash_password
 from ..services.data_access.auth_code import create_auth_code
-from uuid import uuid4
+from uuid import uuid4, UUID
 from ..services.auth.jwt_auth_service import generate_access_token, generate_refresh_token
 
 from ..services.data_access.user import get_user, get_user_by_unique_name, create_or_update_user
@@ -27,12 +33,12 @@ auth_controller = APIRouter(
     dependencies=[],
 )
 
-async def generate_token_with_refresh(user: User):
+async def generate_token_with_refresh(user: User, resources: list[tuple[str, str]]):
     refresh_token = generate_refresh_token(user)
 
     await create_auth_code(refresh_token) 
     
-    return TokenPair(token=generate_access_token(user), refresh_token=refresh_token.id)
+    return TokenPair(token=generate_access_token(user, resources), refresh_token=refresh_token.id)
 
 @auth_controller.get('/public_key', response_class=PlainTextResponse)
 def public_key() -> str:
@@ -55,7 +61,7 @@ async def register(data: RegisterModel) -> TokenPair:
 
     await create_or_update_user(user)
 
-    return await generate_token_with_refresh(user)
+    return await generate_token_with_refresh(user, [])
 
 
 @auth_controller.post("/login")
@@ -72,7 +78,7 @@ async def login(data: LoginModel) -> TokenPair:
     if existing_user.pw != hash_password(existing_user.id, data.pw):
         raise HTTPException(401, 'Password incorrect')
     
-    return await generate_token_with_refresh(existing_user)
+    return await generate_token_with_refresh(existing_user, [])
   
 
 @auth_controller.post("/authorization_code_flow")
@@ -100,11 +106,55 @@ async def authorization_code_flow(data: RefreshTokenModel) -> TokenPair:
         user = User(_id=token.corresponding_user, pw=None, unique_name=str(token.corresponding_user), name='', roles=['vessel'])
 
         await create_or_update_user(user)
+
+    if data.resources is not None:
+
+        flight_load_tasks: list[Coroutine[Any, Any, Flight | None]] = []
+
+        for resource_type, resource_uuid in data.resources:
+
+            if resource_type == 'flight':
+
+                if not isinstance(resource_uuid, UUID):
+                    raise HTTPException(401, f'Invalid resource uuid {resource_uuid}')
+                
+                flight_load_tasks.append(get_flight(resource_uuid))
+            else:
+                raise HTTPException(401, f'Invalid resource type: {resource_type}')
+
+        flights = await asyncio.gather(*flight_load_tasks)
+
+        vessel_load_tasks = list[Coroutine[Any, Any, Vessel | None]]()
+
+        i = -1
+        for flight in flights:
+            i += 1
+            if flight is None:
+                raise HTTPException(401, f'Flight {data.resources[i][1]} does not exist')
+
+            vessel_load_tasks.append(get_vessel(flight.vessel_id))
+        
+        vessels = await asyncio.gather(*vessel_load_tasks)
+
+        user_info = user_info_from_user(user)
+
+        i = -1
+        for vessel in vessels:
+            i += 1
+
+            flight = flights[i]
+
+            if vessel is None or flight is None:
+                raise HTTPException(401, f'Flight {data.resources[i][1]} does not exist')
+
+            if not has_flight_permission(flight, vessel, 'write', user_info):
+                raise HTTPException(401, f'No permission for flight {data.resources[i][1]}')
+
     
     if token.single_use:
         await delete_code(token_value)
 
-    return await generate_token_with_refresh(user)
+    return await generate_token_with_refresh(user, [(r[0], str(r[1])) for r in data.resources] if isinstance(data.resources, list) else []) 
 
 @auth_controller.post('/auth_code/rewoke')
 async def rewoke_auth_code(request: Request):

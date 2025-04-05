@@ -10,6 +10,7 @@ from app.services.auth.jwt_auth_service import get_self_access_token
 MAX_PACKETS = 2000
 RETRY_DELAY = 5 # Retry delay on failed connection
 
+packet_received = False
 mqtt_stop_token = False
 mqtt_thread: threading.Thread | None = None
 """
@@ -50,12 +51,14 @@ def mqtt_main(host):
 async def mqtt_asyncio_loop(client: mqtt.Client):
 
     global mqtt_stop_token
+    global packet_received
 
     while not mqtt_stop_token:
 
-        await asyncio.sleep(0.2)
+        if not packet_received:
+            await asyncio.sleep(0.2)
 
-        # client.loop(0.1)
+        packet_received = False
 
         client.loop_read(MAX_PACKETS)
         client.loop_write()
@@ -86,6 +89,10 @@ def stop_mqtt():
         mqtt_thread.join()
 
 def on_message(client, userdata, msg: mqtt.MQTTMessage):
+
+    global packet_received
+
+    packet_received = True
 
     split_topic = msg.topic.split('/')
 

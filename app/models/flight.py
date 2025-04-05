@@ -59,9 +59,9 @@ class Flight(AwareDatetimeModel):
     The list of vessel parts that have measurements for and how those measurements will look like
     """
 
-    available_commands: Dict[str, CommandInfo] 
+    available_commands: dict[str, list[CommandInfo]] = Field(default_factory=dict)
     """
-    List of available commands and their json schemas. The keys have to be the part the command is issued to
+    list of commands available on each part.
     """
 
     permissions: dict[str, str] = Field(default_factory=dict)
