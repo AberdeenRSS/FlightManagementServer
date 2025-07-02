@@ -63,7 +63,7 @@ def debsonify_measurements(measurements: list[dict]):
 
 #region Collection management
 
-async def get_or_init_flight_data_collection() -> AgnosticCollection:
+async def get_or_init_flight_data_collection(table: str = 'flight_data') -> AgnosticCollection:
 
     async def create_collection(db: AgnosticDatabase, n: str):
         collection = await db.create_collection(n, timeseries = {
@@ -78,16 +78,16 @@ async def get_or_init_flight_data_collection() -> AgnosticCollection:
         ])
         return collection
 
-    col = await get_or_init_collection(f'flight_data', create_collection)
+    col = await get_or_init_collection(table, create_collection)
     return col
 
 #endregion
 
-async def insert_flight_data(measurements: list[FlightMeasurementDB], flight_id: UUID):
+async def insert_flight_data(measurements: list[FlightMeasurementDB], flight_id: UUID, table: str = 'flight_data'):
 
     insert_start_time = time()
 
-    collection = await get_or_init_flight_data_collection()
+    collection = await get_or_init_flight_data_collection(table)
 
     # Convert into a datetime object, because mongodb
     # suddenly wants datetime objects instead of strings here
@@ -109,8 +109,8 @@ async def insert_flight_data(measurements: list[FlightMeasurementDB], flight_id:
 
     # current_app.logger.debug(f'Pushed {len(measurements)} compact measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
 
-async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime) -> list[FlightMeasurementDB]:
-    collection = await get_or_init_flight_data_collection()
+async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, table: str = 'flight_data') -> list[FlightMeasurementDB]:
+    collection = await get_or_init_flight_data_collection(table)
 
     # Get all measurements in the date range
     res = await collection.find({'_start_time': { '$gte': start, '$lt': end }, 'metadata._flight_id': {'$eq': series_identifier.flight_id}, 'metadata.part_id': {'$eq': series_identifier.vessel_part_id}  }).to_list(1000)
@@ -130,7 +130,7 @@ async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIde
 
     return [FlightMeasurementDB(**r) for r in res]
 
-async def get_aggregated_flight_data(flight_id: UUID, part_index: int | None, measurement_index: int | None, start: datetime, end: datetime, resolution: Literal['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: Any ) -> list[FlightMeasurementAggregated]:
+async def get_aggregated_flight_data(flight_id: UUID, part_index: int | None, measurement_index: int | None, start: datetime, end: datetime, resolution: Literal['year', 'month', 'day', 'hour', 'minute', 'second', 'decisecond'], schemas: Any, table: str = 'flight_data') -> list[FlightMeasurementAggregated]:
 
     match_stage = {
         '$match': {
@@ -174,7 +174,7 @@ async def get_aggregated_flight_data(flight_id: UUID, part_index: int | None, me
 
     # project_aggregated_stage['$project']['measurements_aggregated'].update(get_aggregated_result_projection(schemas))
 
-    collection = await get_or_init_flight_data_collection()
+    collection = await get_or_init_flight_data_collection(table)
 
     res = await collection.aggregate([match_stage, project_stage, group_stage]).to_list(1000)
 

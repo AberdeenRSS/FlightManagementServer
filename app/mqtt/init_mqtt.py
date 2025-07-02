@@ -4,7 +4,7 @@ from time import sleep
 from fastapi import FastAPI
 import paho.mqtt.client as mqtt
 
-from app.mqtt.measurments import process_measurements
+from app.mqtt.measurments import MeasurmentProcessor
 from app.services.auth.jwt_auth_service import get_self_access_token
 
 MAX_PACKETS = 2000
@@ -13,6 +13,11 @@ RETRY_DELAY = 5 # Retry delay on failed connection
 packet_received = False
 mqtt_stop_token = False
 mqtt_thread: threading.Thread | None = None
+
+flight_data_measurement_processor = MeasurmentProcessor('flight_data', False)
+commands_measurement_processor = MeasurmentProcessor('commands', True)
+
+
 """
 ### MQTT thread:
 
@@ -97,7 +102,11 @@ def on_message(client, userdata, msg: mqtt.MQTTMessage):
     split_topic = msg.topic.split('/')
 
     if split_topic[1] == 'm':
-        process_measurements(split_topic[0], split_topic[2], split_topic[3], msg.payload)
+        flight_data_measurement_processor.process_measurements(split_topic[0], split_topic[2], split_topic[3], msg.payload)
+        return
+    
+    if split_topic[1] == 'c':
+        commands_measurement_processor.process_measurements(split_topic[0], split_topic[2], split_topic[3], msg.payload)
         return
 
     print(f'{msg.topic}: {msg.payload}')
