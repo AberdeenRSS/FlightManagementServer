@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import gzip
+from app.config import get_settings
 from app.controller.auth_controller import auth_controller
 from app.controller.command_controller import command_controller
 from app.controller.vessel_controller import vessel_controller,vessels_controller
@@ -39,9 +40,11 @@ class GZipedMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def _lifetime(app: FastAPI):
+
+    endpoint = get_settings().mqtt_endpoint
     
     try:
-        start_mqtt(app, 'localhost')
+        start_mqtt(app, endpoint)
         yield
     finally:
         stop_mqtt()
