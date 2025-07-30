@@ -1,8 +1,11 @@
-from typing import Union, cast
+import asyncio
+from typing import List, Union, cast
 from uuid import UUID
 
 from blinker import NamedSignal, Namespace
 from motor.core import AgnosticCollection
+
+from app.services.data_access.flight_data import get_or_init_flight_data_collection
 
 from .mongodb.mongodb_connection import get_db
 from app.models.flight import Flight
@@ -34,7 +37,7 @@ async def create_or_update_flight(flight: Flight) -> Flight:
 
     return flight
 
-async def get_all_flights_for_vessels(_vessel_id: UUID):
+async def get_all_flights_for_vessels(_vessel_id: UUID) -> List[Flight]:
     collection = get_flight_collection()
     raw = await collection.find({'_vessel_id': _vessel_id }).to_list(1000) # type: ignore
     return [Flight(**r) for r in raw]
@@ -53,9 +56,20 @@ async def get_flight(_id: UUID) -> Union[Flight, None]:
 
     return None
 
-async def delete_flight_by_id(_id:UUID) -> bool:
-    collection = get_flight_collection()
-    result = await collection.delete_one({'_id': _id})
-    return result.deleted_count > 0
+async def bulk_delete_flights_by_ids(_ids: List[UUID]) -> bool:
+    flight_collection = get_flight_collection()
+    flight_data_collection = await get_or_init_flight_data_collection("flight_data")
+    commands_collection = await get_or_init_flight_data_collection("commands")
+
+    results = await asyncio.gather(
+        flight_data_collection.delete_many({'metadata._flight_id': {'$in': _ids}}),
+        commands_collection.delete_many({'metadata._flight_id': {'$in': _ids}}),
+        flight_collection.delete_many({'_id': {'$in': _ids}})
+    )
+
+    return results[2].deleted_count > 0
+    
+
+
 
     
