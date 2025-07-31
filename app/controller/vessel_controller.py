@@ -15,7 +15,7 @@ from app.services.auth.jwt_user_info import get_socket_user_info
 from app.services.auth.permission_service import has_vessel_permission, modify_vessel_permission
 from app.services.data_access.auth_code import create_auth_code, get_auth_codes_for_user
 from app.services.data_access.user import create_or_update_user, get_user_by_unique_name
-from app.services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel, get_vessel_by_name, update_vessel_without_version_change, delete_historic_vessel
+from app.services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel, get_vessel_by_name, update_vessel_without_version_change, delete_vessel_by_id
 
 vessel_controller = APIRouter(
     prefix="/vessel",
@@ -280,31 +280,10 @@ async def update_vessel(user: AuthOptional, vessel_id:UUID, vessel_update_data:U
 
     return vessel
 
-# @vessels_controller.delete("/{vessel_id}")
-# async def delete_vessel(user: AuthOptional,vessel_id:UUID) -> str:
-#     '''
-#     Deletes a vessel
-#     '''
-    
-#     vessel = await get_vessel(vessel_id)
-
-#     if vessel is None:
-#         raise HTTPException(404, 'Vessel does not exist')
-    
-#     if not has_vessel_permission(vessel, 'owner', user):
-#         raise HTTPException(403, 'You are not authorized to perform this action')
-    
-#     result = await delete_all_historic_vessels(vessel_id)
-
-#     if not result:
-#         raise HTTPException(500, 'Failed to delete vessel')
-    
-#     return 'success'
-
-@vessels_controller.delete("/{vessel_id}/versions/{version}")
-async def delete_vessel_historic_by_version_and_id(user: AuthOptional,vessel_id:UUID,version:int) -> str:
+@vessels_controller.delete("/{vessel_id}")
+async def delete_vessel(user: AuthOptional,vessel_id:UUID) -> str:
     '''
-    Deletes a historic version of a vessel
+    Deletes a vessel
     '''
     
     vessel = await get_vessel(vessel_id)
@@ -315,13 +294,7 @@ async def delete_vessel_historic_by_version_and_id(user: AuthOptional,vessel_id:
     if not has_vessel_permission(vessel, 'owner', user):
         raise HTTPException(403, 'You are not authorized to perform this action')
     
-    if vessel.version != version:
-        vessel = await get_historic_vessel(vessel_id, version)
-    
-    if vessel is None:
-        raise HTTPException(404, 'Vessel does not exist')
-
-    result = await delete_historic_vessel(vessel_id, version)
+    result = await delete_vessel_by_id(vessel_id)
 
     if not result:
         raise HTTPException(500, 'Failed to delete vessel')

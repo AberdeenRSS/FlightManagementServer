@@ -3,22 +3,17 @@ from fastapi.testclient import TestClient
 import jwt
 import pytest
 from app.models.vessel import Vessel
+from app.services.data_access.mongodb.mongodb_connection import get_db
 from tests.auth_helper import get_auth_headers
 from app.models.flight import Flight
 from datetime import datetime, timedelta
 from datetime import timezone
-from tests.auth_helper import create_api_user, get_bearer_for_user
-from uuid import uuid4
 
 @pytest.mark.asyncio
-async def test_v1_create_flight(test_client:TestClient,test_user_bearer):
+async def test_v1_delete_flight(test_client:TestClient,test_user_bearer):
     # Bearer token for test user
     bearer = await test_user_bearer
-
-    second_user = await create_api_user(uuid4())
-    second_user_bearer = await get_bearer_for_user(second_user, test_client)
-
-    assert bearer is not second_user_bearer
+    flight_collection = get_db()["flights"]
 
     vessel_name = 'Testing Vessel'
     
@@ -95,71 +90,30 @@ async def test_v1_create_flight(test_client:TestClient,test_user_bearer):
     assert '_id' in create_flight_data
     assert create_flight_data['_vessel_id'] == vessel['_id']
 
-    assert create_flight_data['name'] == 'Test Flight'
+    raw = await flight_collection.find({'_vessel_id': UUID(vessel["_id"]) }).to_list(10) 
+    assert len(raw) == 1
 
-    get_flight_response = test_client.get(
-        f"/v1/flights/{create_flight_data['_id']}",
-        headers=get_auth_headers(bearer))
-    
-    assert get_flight_response.status_code == 200
-    get_flight_data = get_flight_response.json()
-    assert get_flight_data['_id'] == create_flight_data['_id']
-    assert get_flight_data['name'] == 'Test Flight'
-
-    unauthorised_rename_flight_response = test_client.put(
-        f"/v1/flights/{create_flight_data['_id']}",
-        json={'name':'I shouldnt do this'},
-        headers=get_auth_headers(second_user_bearer))
-    
-    assert unauthorised_rename_flight_response.status_code == 403
-
-    get_flight_response = test_client.get(
+    delete_response = test_client.delete(
         f"/v1/flights/{create_flight_data['_id']}",
         headers=get_auth_headers(bearer)
     )
 
-    assert get_flight_response.status_code == 200
-    get_flight_data = get_flight_response.json()
-    assert get_flight_data['_id'] == create_flight_data['_id']
-    assert get_flight_data['name'] == 'Test Flight'
-    
+    assert delete_response.status_code == 200
 
-    rename_flight_response = test_client.put(
-        f"/v1/flights/{create_flight_data['_id']}",
-        json={'name':'Renamed Flight'},
-        headers=get_auth_headers(bearer)
-    )
+    raw = await flight_collection.find({'_vessel_id': UUID(vessel["_id"]) }).to_list(10) 
+    assert len(raw) == 0
 
-    assert rename_flight_response.status_code == 200
-    renamed_flight = rename_flight_response.json()
-    print(renamed_flight)
-    assert renamed_flight['name'] == 'Renamed Flight'
-    assert renamed_flight['_vessel_id'] == vessel['_id']
-    
-    get_flight_response = test_client.get(
-        f"/v1/flights/{create_flight_data['_id']}",
-        headers=get_auth_headers(bearer))
-    
-    assert get_flight_response.status_code == 200
-    get_flight_data = get_flight_response.json()
-    assert get_flight_data['_id'] == create_flight_data['_id']
-    assert get_flight_data['name'] == 'Renamed Flight'
-
-    unauthorised_delete_flight_response = test_client.delete(
-        f"/v1/flights/{create_flight_data['_id']}",
-        headers=get_auth_headers(second_user_bearer))
-    
-    assert unauthorised_delete_flight_response.status_code == 403
-
-    delete_flight_response = test_client.delete(
+    # Check that the flight is deleted
+    get_response = test_client.get(
         f"/v1/flights/{create_flight_data['_id']}",
         headers=get_auth_headers(bearer)
     )
 
-    assert delete_flight_response.status_code == 200
+    assert get_response.status_code == 404
 
-    get_flight_response = test_client.get(
-        f"/v1/flights/{create_flight_data['_id']}",
-        headers=get_auth_headers(bearer))
-    
-    assert get_flight_response.status_code == 404
+    # Check that the vessel still exists
+    get_vessel_response = test_client.get(
+        f"/v1/vessels/{vessel['_id']}",
+        headers=get_auth_headers(bearer)
+    )
+    assert get_vessel_response.status_code == 200

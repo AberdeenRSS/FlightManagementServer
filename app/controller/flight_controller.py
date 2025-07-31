@@ -6,7 +6,7 @@ from app.middleware.auth.requireAuth import AuthOptional, AuthRequired, user_opt
 from app.models.flight import Flight, FLIGHT_DEFAULT_HEAD_TIME, UpdateFlight
 from app.services.auth.jwt_user_info import UserInfo, get_socket_user_info
 from app.services.auth.permission_service import has_flight_permission, modify_flight_permission
-from app.services.data_access.flight import create_or_update_flight, delete_flight_by_id, get_all_flights_for_vessels, get_all_flights_for_vessels_by_name, get_flight
+from app.services.data_access.flight import bulk_delete_flights_by_ids, create_or_update_flight, get_all_flights_for_vessels, get_all_flights_for_vessels_by_name, get_flight
 from app.services.data_access.user import get_user_by_unique_name
 from app.services.data_access.vessel import get_vessel 
 from app.controller.vessel_controller import vessels_controller
@@ -199,6 +199,7 @@ async def delete_flight_controller(user: AuthOptional, flight_id:UUID):
     if not has_flight_permission(flight, vessel, 'owner', user):
         raise HTTPException(403, 'You don\'t have the required permission to access the flight')
     
-    await delete_flight_by_id(flight_id)
-
+    result = await bulk_delete_flights_by_ids([flight_id])
+    if not result:
+        raise HTTPException(500, 'Failed to delete flight')
     return 'success'

@@ -109,6 +109,7 @@ async def insert_flight_data(measurements: list[FlightMeasurementDB], flight_id:
 
     # current_app.logger.debug(f'Pushed {len(measurements)} compact measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
 
+
 async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, table: str = 'flight_data') -> list[FlightMeasurementDB]:
     collection = await get_or_init_flight_data_collection(table)
 
