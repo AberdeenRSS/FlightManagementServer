@@ -56,20 +56,10 @@ async def get_flight(_id: UUID) -> Union[Flight, None]:
 
     return None
 
+
 async def bulk_delete_flights_by_ids(_ids: List[UUID]) -> bool:
     flight_collection = get_flight_collection()
-    flight_data_collection = await get_or_init_flight_data_collection("flight_data")
-    commands_collection = await get_or_init_flight_data_collection("commands")
-
-    results = await asyncio.gather(
-        flight_data_collection.delete_many({'metadata._flight_id': {'$in': _ids}}),
-        commands_collection.delete_many({'metadata._flight_id': {'$in': _ids}}),
-        flight_collection.delete_many({'_id': {'$in': _ids}})
-    )
-
-    return results[2].deleted_count > 0
+    results = await flight_collection.delete_many({'_id': {'$in': _ids}})
     
+    return results.deleted_count > 0
 
-
-
-    

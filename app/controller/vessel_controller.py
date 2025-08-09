@@ -16,6 +16,7 @@ from app.services.auth.permission_service import has_vessel_permission, modify_v
 from app.services.data_access.auth_code import create_auth_code, get_auth_codes_for_user
 from app.services.data_access.user import create_or_update_user, get_user_by_unique_name
 from app.services.data_access.vessel import create_or_update_vessel, get_all_vessels, get_vessel, get_historic_vessel, get_vessel_by_name, update_vessel_without_version_change, delete_vessel_by_id
+from app.services.vessel_service import VesselService
 
 vessel_controller = APIRouter(
     prefix="/vessel",
@@ -294,7 +295,7 @@ async def delete_vessel(user: AuthOptional,vessel_id:UUID) -> str:
     if not has_vessel_permission(vessel, 'owner', user):
         raise HTTPException(403, 'You are not authorized to perform this action')
     
-    result = await delete_vessel_by_id(vessel_id)
+    result = await VesselService.delete_vessel(vessel_id)
 
     if not result:
         raise HTTPException(500, 'Failed to delete vessel')

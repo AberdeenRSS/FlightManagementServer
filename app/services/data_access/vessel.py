@@ -97,27 +97,16 @@ async def get_historic_vessel(_id: UUID, _version: int):
 
 async def delete_vessel_by_id(_id:UUID) -> bool:
     """
-    Deleting a vessel by id deletes the vessel, it's historic versions, 
-    all flights associated with it and all data with those flights, including flight measurements and commands
+    Deletes the vessel, and it's historic versions. Don't use outside of the VesselService so there are no orphaned flight data or commands.
     """
     vessel_collection = get_vessel_collection()
 
-    # Get all flights associated with the vessel
-    flights = await get_all_flights_for_vessels(_id)
-    flight_ids = [flight.id for flight in flights]
-
-    if flight_ids:
-        results = await asyncio.gather(
-            bulk_delete_flights_by_ids(flight_ids),
-            delete_all_historic_vessels(_id),
-            vessel_collection.delete_one({'_id': _id})
-        )
-    else:
-        results = await asyncio.gather(
-            delete_all_historic_vessels(_id),
-            vessel_collection.delete_one({'_id': _id})
-        )
-    return results[-1].deleted_count > 0
+    results = await asyncio.gather(
+        delete_all_historic_vessels(_id),
+        vessel_collection.delete_one({'_id': _id})
+    )
+   
+    return results[1].deleted_count > 0
 
 
 async def delete_historic_vessel(_id:UUID, _version:int):

@@ -11,6 +11,7 @@ from app.services.data_access.user import get_user_by_unique_name
 from app.services.data_access.vessel import get_vessel 
 from app.controller.vessel_controller import vessels_controller
 from app.models.permissions import Permission
+from app.services.flight_service import FlightService
 
 
 flight_controller = APIRouter(
@@ -199,7 +200,8 @@ async def delete_flight_controller(user: AuthOptional, flight_id:UUID):
     if not has_flight_permission(flight, vessel, 'owner', user):
         raise HTTPException(403, 'You don\'t have the required permission to access the flight')
     
-    result = await bulk_delete_flights_by_ids([flight_id])
+    result = await FlightService.bulk_delete_flights_by_ids([flight_id])
+    
     if not result:
         raise HTTPException(500, 'Failed to delete flight')
     return 'success'
