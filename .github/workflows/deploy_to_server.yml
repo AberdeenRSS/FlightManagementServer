@@ -30,3 +30,4 @@ jobs:
             cd /usr/share/uoarocketry-docker/docker
             sudo -n /usr/bin/docker-compose stop
             sudo -n /usr/bin/docker-compose up -d
+
