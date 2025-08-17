@@ -1,10 +1,12 @@
 import json
-from typing import Union, cast
+from typing import Union
 from uuid import UUID
 from motor.core import AgnosticCollection
 
 from app.models.vessel import Vessel, VesselHistoric, VesselHistoricKey
+from app.services.data_access.flight import bulk_delete_flights_by_ids, get_all_flights_for_vessels
 from .mongodb.mongodb_connection import get_db
+import asyncio
 
 def get_vessel_collection() -> AgnosticCollection:
     db = get_db()
@@ -93,12 +95,19 @@ async def get_historic_vessel(_id: UUID, _version: int):
 
     return None
 
-async def delete_vessel_by_id(_id:UUID):
+async def delete_vessel_by_id(_id:UUID) -> bool:
+    """
+    Deletes the vessel, and it's historic versions. Don't use outside of the VesselService so there are no orphaned flight data or commands.
+    """
     vessel_collection = get_vessel_collection()
-    
-    result = await vessel_collection.delete_one({'_id': _id})
 
-    return result.deleted_count > 0
+    results = await asyncio.gather(
+        delete_all_historic_vessels(_id),
+        vessel_collection.delete_one({'_id': _id})
+    )
+   
+    return results[1].deleted_count > 0
+
 
 async def delete_historic_vessel(_id:UUID, _version:int):
     vessel_collection = get_historic_vessel_collection()

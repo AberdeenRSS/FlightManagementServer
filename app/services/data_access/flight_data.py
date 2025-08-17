@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Literal, Sequence, cast
+from typing import Any, List, Literal, Sequence, cast
 from uuid import UUID
 from motor.core import AgnosticCollection, AgnosticDatabase
 from pymongo import ASCENDING, DESCENDING
@@ -109,6 +109,7 @@ async def insert_flight_data(measurements: list[FlightMeasurementDB], flight_id:
 
     # current_app.logger.debug(f'Pushed {len(measurements)} compact measurements. Total: {int((preparation_time + db_time)*1000)}ms; Preparation {int((preparation_time)*1000)}ms; DB: {int((db_time)*1000)}ms;')
 
+
 async def get_flight_data_in_range(series_identifier: FlightMeasurementSeriesIdentifier, start: datetime, end: datetime, table: str = 'flight_data') -> list[FlightMeasurementDB]:
     collection = await get_or_init_flight_data_collection(table)
 
@@ -192,3 +193,17 @@ async def get_aggregated_flight_data(flight_id: UUID, part_index: int | None, me
         del m['_id']
             
     return [FlightMeasurementAggregated(**r) for r in res]
+
+async def bulk_delete_flight_data_by_flight_ids(_ids: List[UUID]) -> bool:
+    flight_data_collection = await get_or_init_flight_data_collection("flight_data")
+    results = await flight_data_collection.delete_many({'metadata._flight_id': {'$in': _ids}})
+    
+    return results.deleted_count > 0
+
+async def bulk_delete_flight_commands_by_flight_ids(_ids: List[UUID]) -> bool:
+    commands_collection = await get_or_init_flight_data_collection("commands")  
+    results = await commands_collection.delete_many({'metadata._flight_id': {'$in': _ids}})
+
+    return results.deleted_count > 0
+        
+    

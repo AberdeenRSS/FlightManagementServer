@@ -22,7 +22,7 @@ async def test_create_flight(test_client:TestClient,test_user_bearer):
     vessel = create_vessel_response.json()
     
     # Get Auth code for the vessel hardware to register with
-    valid_until = datetime.now(timezone.utc) + timedelta(minutes=1)
+    valid_until = datetime.now(timezone.utc) + timedelta(1)
     auth_code_response = test_client.post(f"/vessel/create_auth_code/{vessel['_id']}/{valid_until}",headers=get_auth_headers(bearer))
     assert auth_code_response.status_code == 200
     auth_code = auth_code_response.json()['_id']
