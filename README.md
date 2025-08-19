@@ -9,6 +9,8 @@ The Flight Management Server is a cloud service that handles all data produced b
 We are currently hosting the api at [https://api.uoarocketry.org](https://api.uoarocketry.org)   
 Click [here](https://api.uoarocketry.org/docs) for the auto generated api documentation
 
+The app is currently hosted at [https://aberdeenrss.github.io/FlightManagementClient/](https://aberdeenrss.github.io/FlightManagementClient/)
+
 ## Build
 
 To build the project youself follow these steps:
